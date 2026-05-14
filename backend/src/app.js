@@ -1,13 +1,17 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import cors from "cors";
 import express from "express";
 import { createOpenAITutor } from "./services/openaiTutor.js";
 import { createTutorService } from "./services/tutorService.js";
+import { createVideoGenerator } from "./services/videoGenerator.js";
 import { getTemplateSummaries } from "./templates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const videoDirectory = path.resolve(__dirname, "../public/videos");
+const defaultGeneratedDirectory = path.resolve(__dirname, "../public/generated");
+const defaultFrontendDirectory = path.resolve(__dirname, "../../frontend/dist");
 
 function defaultHasOpenAIKey() {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
@@ -21,7 +25,10 @@ function parseCorsOrigin() {
 
 export function createApp({
   generateLesson,
+  generateVideo,
   hasOpenAIKey = defaultHasOpenAIKey,
+  generatedDirectory = defaultGeneratedDirectory,
+  frontendDirectory = process.env.FRONTEND_DIST_DIR || defaultFrontendDirectory,
 } = {}) {
   const app = express();
   const openaiConfigured = hasOpenAIKey();
@@ -30,6 +37,7 @@ export function createApp({
     (openaiConfigured ? createOpenAITutor().generateLesson : undefined);
   const tutorService = createTutorService({
     generateLesson: lessonGenerator,
+    generateVideo: generateVideo ?? createVideoGenerator({ outputDirectory: generatedDirectory }),
     hasOpenAIKey,
   });
 
@@ -38,6 +46,15 @@ export function createApp({
   app.use(
     "/videos",
     express.static(videoDirectory, {
+      etag: true,
+      fallthrough: false,
+      immutable: false,
+      maxAge: "5m",
+    }),
+  );
+  app.use(
+    "/generated",
+    express.static(generatedDirectory, {
       etag: true,
       fallthrough: false,
       immutable: false,
@@ -68,6 +85,18 @@ export function createApp({
       next(error);
     }
   });
+
+  if (fs.existsSync(path.join(frontendDirectory, "index.html"))) {
+    app.use(express.static(frontendDirectory));
+    app.use((req, res, next) => {
+      if (req.method !== "GET" || req.path.startsWith("/api/") || req.path.startsWith("/videos/")) {
+        next();
+        return;
+      }
+
+      res.sendFile(path.join(frontendDirectory, "index.html"));
+    });
+  }
 
   app.use((req, res) => {
     res.status(404).json({

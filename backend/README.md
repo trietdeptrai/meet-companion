@@ -1,8 +1,8 @@
 # Visual Tutor Backend
 
 Backend for the Google Meet visual tutor demo. It turns a learner prompt like
-`Giải thích định lý Pytagore` into a ready-to-play template video plus a tutor
-script, captions, storyboard, and follow-up question.
+`Giải thích định lý Pytagore` into a generated 10-second MP4 plus a tutor script,
+captions, storyboard, and follow-up question.
 
 ## Setup
 
@@ -17,10 +17,14 @@ Responses API:
 ```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.4-mini
+FFMPEG_PATH=ffmpeg
 ```
 
 Without `OPENAI_API_KEY`, the backend still returns a local fallback tutor script
 so the demo remains usable.
+
+Video generation uses `ffmpeg` and writes request-specific MP4 files to
+`backend/public/generated/`.
 
 ## Run
 
@@ -29,6 +33,9 @@ npm run dev
 ```
 
 Default URL: `http://localhost:8787`
+
+If `../frontend/dist` exists, the backend also serves the built frontend from
+`GET /`.
 
 ## API
 
@@ -44,7 +51,7 @@ curl -X POST http://localhost:8787/api/tutor/explain \
 
 The response includes:
 
-- `video.url`: `/videos/pythagorean-theorem.mp4`
+- `video.url`: `/generated/<request-id>.mp4`
 - `tutor.opening`
 - `tutor.steps`
 - `tutor.followUpQuestion`

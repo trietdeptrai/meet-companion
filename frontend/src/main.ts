@@ -16,34 +16,34 @@ type AppState = GenerateLessonRequest & {
 
 const initialLesson: LessonPreview = {
   id: "initial",
-  title: "Bayes theorem in motion",
+  title: "Pythagorean theorem",
   status: "ready",
-  formula: "P(A|B) = P(B|A)P(A) / P(B)",
-  symbols: ["P(A)", "P(B)", "P(A|B)", "?"],
+  formula: "a² + b² = c²",
+  symbols: ["a", "b", "c", "c²"],
   storyboard: [
     {
       index: 1,
-      title: "Introduce symbols",
-      description: "Define prior, evidence, and posterior using separate visual tokens.",
+      title: "Draw the triangle",
+      description: "Start with a right triangle and name the two shorter sides a and b.",
     },
     {
       index: 2,
-      title: "Animate relationship",
-      description: "Show how evidence reshapes confidence as the symbols converge.",
+      title: "Mark the hypotenuse",
+      description: "The longest side is c.",
     },
     {
       index: 3,
-      title: "Check understanding",
-      description: "Pause on a small prediction task before the final summary.",
+      title: "Compare areas",
+      description: "The two smaller square areas add up to the large square area.",
     },
   ],
 };
 
 const state: AppState = {
-  concept: "Bayes theorem",
+  concept: "Giải thích định lý Pytagore bằng hình ảnh đơn giản",
   audience: "Beginner",
   visualMode: "Symbols",
-  durationSeconds: 90,
+  durationSeconds: 10,
   includeNarration: true,
   lesson: initialLesson,
   isGenerating: false,
@@ -164,9 +164,9 @@ const render = (): void => {
         </form>
 
         <div class="quick-prompts" aria-label="Example concepts">
-          <button type="button" data-prompt="Quantum tunneling">Quantum tunneling</button>
-          <button type="button" data-prompt="Compound interest">Compound interest</button>
-          <button type="button" data-prompt="Neural networks">Neural networks</button>
+          <button type="button" data-prompt="Giải thích định lý Pytagore">Định lý Pytagore</button>
+          <button type="button" data-prompt="Explain the Pythagorean theorem simply">Pythagorean theorem</button>
+          <button type="button" data-prompt="Tam giác vuông và cạnh huyền">Tam giác vuông</button>
         </div>
       </section>
 
@@ -204,7 +204,7 @@ const render = (): void => {
           <div class="field-group">
             <label for="duration">Video length</label>
             <div class="range-row">
-              <input id="duration" type="range" min="30" max="180" value="${state.durationSeconds}" />
+              <input id="duration" type="range" min="10" max="10" value="${state.durationSeconds}" />
               <output id="durationOutput" for="duration">${state.durationSeconds}s</output>
             </div>
           </div>
@@ -241,19 +241,29 @@ const render = (): void => {
           }
 
           <div class="video-frame">
-            <div class="orbital-lesson" aria-hidden="true">
-              <span class="symbol node-a">${escapeHtml(symbolA)}</span>
-              <span class="symbol node-b">${escapeHtml(symbolB)}</span>
-              <span class="symbol node-c">${escapeHtml(symbolC)}</span>
-              <span class="symbol node-d">${escapeHtml(symbolD)}</span>
-              <div class="orbit orbit-one"></div>
-              <div class="orbit orbit-two"></div>
-              <div class="formula-card">
-                <span>${state.visualMode}</span>
-                <strong>${escapeHtml(state.lesson.formula)}</strong>
-              </div>
-            </div>
+            ${
+              state.lesson.videoUrl
+                ? `<video class="template-video" src="${escapeHtml(state.lesson.videoUrl)}" controls autoplay muted playsinline loop></video>`
+                : `<div class="orbital-lesson" aria-hidden="true">
+                    <span class="symbol node-a">${escapeHtml(symbolA)}</span>
+                    <span class="symbol node-b">${escapeHtml(symbolB)}</span>
+                    <span class="symbol node-c">${escapeHtml(symbolC)}</span>
+                    <span class="symbol node-d">${escapeHtml(symbolD)}</span>
+                    <div class="orbit orbit-one"></div>
+                    <div class="orbit orbit-two"></div>
+                    <div class="formula-card">
+                      <span>${state.visualMode}</span>
+                      <strong>${escapeHtml(state.lesson.formula)}</strong>
+                    </div>
+                  </div>`
+            }
           </div>
+
+          ${
+            state.lesson.intelligenceSource
+              ? `<p class="source-note">Tutor script source: ${escapeHtml(state.lesson.intelligenceSource)}</p>`
+              : ""
+          }
 
           <div class="timeline" aria-label="Generated lesson timeline">
             ${renderTimeline(state.lesson.storyboard)}

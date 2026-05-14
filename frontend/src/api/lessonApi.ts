@@ -6,6 +6,31 @@ import type {
   StoryboardStep,
 } from "../types/lesson";
 
+type BackendTutorStep = {
+  atSeconds: number;
+  text: string;
+};
+
+type BackendTutorResponse = {
+  requestId: string;
+  status: "ready";
+  prompt: string;
+  language: string;
+  concept: string;
+  title: string;
+  intelligenceSource: "openai" | "template-fallback";
+  video: {
+    url: string;
+    durationSeconds: number;
+    mimeType: string;
+  };
+  tutor: {
+    opening: string;
+    steps: BackendTutorStep[];
+    followUpQuestion: string;
+  };
+};
+
 const defaultStoryboard: StoryboardStep[] = [
   {
     index: 1,
@@ -88,30 +113,72 @@ const getSymbols = (concept: string): string[] => {
 const parseError = async (response: Response): Promise<string> => {
   try {
     const body = (await response.json()) as ApiErrorResponse;
-    return body.message ?? body.detail ?? `Backend request failed with ${response.status}`;
+    return (
+      body.error?.message ??
+      body.message ??
+      body.detail ??
+      `Backend request failed with ${response.status}`
+    );
   } catch {
     return `Backend request failed with ${response.status}`;
   }
 };
 
+const absoluteAssetUrl = (url: string): string => {
+  if (/^https?:\/\//.test(url)) {
+    return url;
+  }
+
+  return `${config.apiBaseUrl}${url}`;
+};
+
+const mapTutorResponse = (response: BackendTutorResponse): LessonPreview => ({
+  id: response.requestId,
+  title: response.title,
+  status: response.status,
+  formula: response.concept === "pythagorean-theorem" ? "a² + b² = c²" : "idea -> video",
+  symbols: response.concept === "pythagorean-theorem" ? ["a", "b", "c", "c²"] : ["A", "B", "C", "?"],
+  storyboard: [
+    {
+      index: 1,
+      title: "Tutor opening",
+      description: response.tutor.opening,
+    },
+    ...response.tutor.steps.map((step, index) => ({
+      index: index + 2,
+      title: `${Math.round(step.atSeconds)}s visual beat`,
+      description: step.text,
+    })),
+    {
+      index: response.tutor.steps.length + 2,
+      title: "Follow-up question",
+      description: response.tutor.followUpQuestion,
+    },
+  ],
+  videoUrl: absoluteAssetUrl(response.video.url),
+  intelligenceSource: response.intelligenceSource,
+});
+
 export const generateLesson = async (
   payload: GenerateLessonRequest,
 ): Promise<LessonPreview> => {
-  if (config.useMockApi || !config.apiBaseUrl) {
+  if (config.useMockApi) {
     return createMockLesson(payload);
   }
 
-  const response = await fetch(`${config.apiBaseUrl}/lessons`, {
+  const response = await fetch(`${config.apiBaseUrl}/api/tutor/explain`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      prompt: payload.concept,
+    }),
   });
 
   if (!response.ok) {
     throw new LessonApiError(await parseError(response), response.status);
   }
 
-  return (await response.json()) as LessonPreview;
+  return mapTutorResponse((await response.json()) as BackendTutorResponse);
 };

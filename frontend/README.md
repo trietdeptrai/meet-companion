@@ -11,11 +11,17 @@ npm run dev
 
 ## Backend connection
 
-Create `.env` from `.env.example` and point `VITE_API_BASE_URL` to the backend.
+By default, the frontend calls relative `/api/tutor/explain` and `/videos/...`.
+In dev, Vite proxies those paths to the backend at `http://localhost:8787`.
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=
 VITE_USE_MOCK_API=false
 ```
 
-The frontend calls `POST /lessons` with a typed `GenerateLessonRequest`. See [src/types/lesson.ts](./src/types/lesson.ts) and [src/api/lessonApi.ts](./src/api/lessonApi.ts).
+For a deployed frontend hosted separately from the backend, set
+`VITE_API_BASE_URL` to the backend origin.
+
+The frontend calls `POST /api/tutor/explain` and maps the backend tutor response
+into a lesson preview. See [src/types/lesson.ts](./src/types/lesson.ts) and
+[src/api/lessonApi.ts](./src/api/lessonApi.ts).

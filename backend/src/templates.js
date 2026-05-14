@@ -18,13 +18,7 @@ const templates = [
       "Build one square on each side of the triangle.",
       "Show that the two smaller square areas combine to equal the large square area: a^2 + b^2 = c^2.",
     ],
-    video: {
-      templateId: "pythagorean-theorem",
-      url: "/videos/pythagorean-theorem.mp4",
-      mimeType: "video/mp4",
-      durationSeconds: 18,
-      style: "3blue1brown-inspired geometric explainer",
-    },
+    videoStyle: "3blue1brown-inspired geometric explainer",
     fallbackLessons: {
       en: {
         opening:
@@ -67,10 +61,10 @@ export function findTemplateForPrompt(prompt) {
 }
 
 export function getTemplateSummaries() {
-  return templates.map(({ id, title, storyboard, video }) => ({
+  return templates.map(({ id, title, storyboard, videoStyle }) => ({
     id,
     title,
     storyboard,
-    video,
+    videoStyle,
   }));
 }

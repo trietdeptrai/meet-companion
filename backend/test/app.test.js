@@ -1,3 +1,6 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import request from "supertest";
 import { describe, expect, test, vi } from "vitest";
 import { createApp } from "../src/app.js";
@@ -26,7 +29,7 @@ describe("Visual Tutor backend", () => {
     expect(response.body.error.code).toBe("PROMPT_REQUIRED");
   });
 
-  test("POST /api/tutor/explain returns an instant Pythagorean template video and tutor script", async () => {
+  test("POST /api/tutor/explain generates a per-request Pythagorean video and tutor script", async () => {
     const generateLesson = vi.fn(async () => ({
       opening:
         "Ta nhin mot tam giac vuong: hai canh ngan tao nen dien tich bang canh dai.",
@@ -37,8 +40,16 @@ describe("Visual Tutor backend", () => {
       ],
       followUpQuestion: "Neu a = 3 va b = 4 thi c bang bao nhieu?",
     }));
+    const generateVideo = vi.fn(async ({ requestId }) => ({
+      templateId: "pythagorean-theorem",
+      url: `/generated/${requestId}.mp4`,
+      mimeType: "video/mp4",
+      durationSeconds: 10,
+      generated: true,
+    }));
     const app = createApp({
       generateLesson,
+      generateVideo,
       hasOpenAIKey: () => true,
     });
 
@@ -48,27 +59,35 @@ describe("Visual Tutor backend", () => {
       .expect(200);
 
     expect(generateLesson).toHaveBeenCalledOnce();
+    expect(generateVideo).toHaveBeenCalledOnce();
     expect(response.body).toMatchObject({
       concept: "pythagorean-theorem",
       status: "ready",
       intelligenceSource: "openai",
       video: {
         templateId: "pythagorean-theorem",
+        generated: true,
         mimeType: "video/mp4",
+        durationSeconds: 10,
       },
       tutor: {
         followUpQuestion: "Neu a = 3 va b = 4 thi c bang bao nhieu?",
       },
     });
-    expect(response.body.video.url).toBe("/videos/pythagorean-theorem.mp4");
+    expect(response.body.video.url).toMatch(/^\/generated\/.+\.mp4$/);
     expect(response.body.tutor.steps).toHaveLength(3);
   });
 
-  test("GET template video URL serves the pre-rendered video asset", async () => {
-    const app = createApp({ hasOpenAIKey: () => false });
+  test("GET generated video URL serves a generated video asset", async () => {
+    const generatedDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "visual-tutor-"));
+    await fs.writeFile(path.join(generatedDirectory, "lesson.mp4"), Buffer.from("fake mp4"));
+    const app = createApp({
+      generatedDirectory,
+      hasOpenAIKey: () => false,
+    });
 
     const response = await request(app)
-      .get("/videos/pythagorean-theorem.mp4")
+      .get("/generated/lesson.mp4")
       .expect(200);
 
     expect(response.headers["content-type"]).toContain("video/mp4");

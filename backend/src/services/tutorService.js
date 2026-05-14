@@ -47,7 +47,7 @@ function normalizeLesson(lesson, template, language) {
   };
 }
 
-export function createTutorService({ generateLesson, hasOpenAIKey }) {
+export function createTutorService({ generateLesson, generateVideo, hasOpenAIKey }) {
   return {
     async explain({ prompt, language }) {
       if (typeof prompt !== "string" || prompt.trim().length === 0) {
@@ -85,9 +85,16 @@ export function createTutorService({ generateLesson, hasOpenAIKey }) {
       }
 
       const tutor = normalizeLesson(lesson, template, resolvedLanguage);
+      const requestId = randomUUID();
+      const video = await generateVideo({
+        requestId,
+        prompt: cleanPrompt,
+        template,
+        tutor,
+      });
 
       return {
-        requestId: randomUUID(),
+        requestId,
         status: "ready",
         prompt: cleanPrompt,
         language: resolvedLanguage,
@@ -95,7 +102,7 @@ export function createTutorService({ generateLesson, hasOpenAIKey }) {
         title: template.title,
         intelligenceSource,
         warning,
-        video: template.video,
+        video,
         tutor,
         storyboard: template.storyboard.map((text, index) => ({
           order: index + 1,

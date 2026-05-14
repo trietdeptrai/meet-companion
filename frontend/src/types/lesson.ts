@@ -26,9 +26,14 @@ export type LessonPreview = {
   symbols: string[];
   storyboard: StoryboardStep[];
   videoUrl?: string;
+  intelligenceSource?: "openai" | "template-fallback";
 };
 
 export type ApiErrorResponse = {
+  error?: {
+    code?: string;
+    message?: string;
+  };
   message?: string;
   detail?: string;
 };
