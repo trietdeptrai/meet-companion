@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { findTemplateForPrompt } from "../templates.js";
+import { createPromptTemplate } from "../templates.js";
 
 export class ApiError extends Error {
   constructor(status, code, message, details) {
@@ -59,14 +59,8 @@ export function createTutorService({ generateLesson, generateVideo, hasOpenAIKey
       }
 
       const cleanPrompt = prompt.trim();
-      const template = findTemplateForPrompt(cleanPrompt);
-      if (!template) {
-        throw new ApiError(422, "UNSUPPORTED_CONCEPT", "No video template matches this prompt.", {
-          supportedTemplates: ["pythagorean-theorem"],
-        });
-      }
-
       const resolvedLanguage = language || detectLanguage(cleanPrompt);
+      const template = createPromptTemplate(cleanPrompt, resolvedLanguage);
       let lesson;
       let intelligenceSource = "template-fallback";
       let warning;

@@ -78,6 +78,47 @@ describe("Visual Tutor backend", () => {
     expect(response.body.tutor.steps).toHaveLength(3);
   });
 
+  test("POST /api/tutor/explain supports Cartesian coordinate prompts", async () => {
+    const generateLesson = vi.fn(async () => ({
+      opening: "He toa do Decartes dung hai truc vuong goc de xac dinh vi tri.",
+      steps: [
+        { atSeconds: 0, text: "Ve truc x nam ngang va truc y thang dung." },
+        { atSeconds: 3, text: "Giao diem hai truc la goc toa do O." },
+        { atSeconds: 6, text: "Mot diem duoc viet bang cap (x, y)." },
+      ],
+      followUpQuestion: "Diem (2, 3) nam ben phai hay ben trai truc y?",
+    }));
+    const generateVideo = vi.fn(async ({ requestId, template }) => ({
+      templateId: template.id,
+      url: `/generated/${requestId}.mp4`,
+      mimeType: "video/mp4",
+      durationSeconds: 10,
+      generated: true,
+    }));
+    const app = createApp({
+      generateLesson,
+      generateVideo,
+      hasOpenAIKey: () => true,
+    });
+
+    const response = await request(app)
+      .post("/api/tutor/explain")
+      .send({ prompt: "Giải thích hệ toạ độ Decartes" })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      concept: "cartesian-coordinates",
+      status: "ready",
+      video: {
+        templateId: "cartesian-coordinates",
+        durationSeconds: 10,
+        generated: true,
+      },
+    });
+    expect(response.body.video.url).toMatch(/^\/generated\/.+\.mp4$/);
+    expect(response.body.tutor.followUpQuestion).toContain("(2, 3)");
+  });
+
   test("GET generated video URL serves a generated video asset", async () => {
     const generatedDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "visual-tutor-"));
     await fs.writeFile(path.join(generatedDirectory, "lesson.mp4"), Buffer.from("fake mp4"));

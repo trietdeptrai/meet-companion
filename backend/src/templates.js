@@ -1,50 +1,4 @@
-const templates = [
-  {
-    id: "pythagorean-theorem",
-    title: "Pythagorean theorem",
-    matchers: [
-      "pythagorean",
-      "pytagore",
-      "pytago",
-      "pitago",
-      "py-ta-go",
-      "tam giac vuong",
-      "right triangle",
-    ],
-    captionTimings: [0, 4, 8, 12],
-    storyboard: [
-      "Draw a right triangle and label the two short sides a and b.",
-      "Label the longest side c, the hypotenuse.",
-      "Build one square on each side of the triangle.",
-      "Show that the two smaller square areas combine to equal the large square area: a^2 + b^2 = c^2.",
-    ],
-    videoStyle: "3blue1brown-inspired geometric explainer",
-    fallbackLessons: {
-      en: {
-        opening:
-          "Let's look at a right triangle. The square on the long side has the same area as the two smaller squares combined.",
-        steps: [
-          { atSeconds: 0, text: "Start with a right triangle and name the short sides a and b." },
-          { atSeconds: 4, text: "The longest side is c, also called the hypotenuse." },
-          { atSeconds: 8, text: "Now build a square on each side." },
-          { atSeconds: 12, text: "The two smaller square areas add up to the large square area: a^2 + b^2 = c^2." },
-        ],
-        followUpQuestion: "Want to try one? If a = 3 and b = 4, what is c?",
-      },
-      vi: {
-        opening:
-          "Hãy nhìn vào một tam giác vuông. Hình vuông trên cạnh dài nhất có diện tích bằng tổng hai hình vuông trên hai cạnh ngắn.",
-        steps: [
-          { atSeconds: 0, text: "Bắt đầu với tam giác vuông và gọi hai cạnh ngắn là a và b." },
-          { atSeconds: 4, text: "Cạnh dài nhất là c, còn gọi là cạnh huyền." },
-          { atSeconds: 8, text: "Bây giờ dựng một hình vuông trên mỗi cạnh." },
-          { atSeconds: 12, text: "Hai diện tích nhỏ cộng lại bằng diện tích lớn: a^2 + b^2 = c^2." },
-        ],
-        followUpQuestion: "Thử một bài nhé: nếu a = 3 và b = 4, vậy c bằng bao nhiêu?",
-      },
-    },
-  },
-];
+const defaultCaptionTimings = [0, 2, 4, 6];
 
 function searchableText(text) {
   return text
@@ -53,18 +7,97 @@ function searchableText(text) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export function findTemplateForPrompt(prompt) {
+function slugifyConcept(prompt) {
+  const normalized = searchableText(prompt)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized.slice(0, 48) || "visual-math-concept";
+}
+
+function inferVisualKind(prompt) {
   const normalized = searchableText(prompt);
-  return templates.find((template) =>
-    template.matchers.some((matcher) => normalized.includes(searchableText(matcher))),
-  );
+
+  if (
+    normalized.includes("toa do") ||
+    normalized.includes("coordinate") ||
+    normalized.includes("decartes") ||
+    normalized.includes("descartes") ||
+    normalized.includes("truc x") ||
+    normalized.includes("truc y")
+  ) {
+    return "coordinate-plane";
+  }
+
+  if (
+    normalized.includes("tam giac") ||
+    normalized.includes("pythag") ||
+    normalized.includes("pytag") ||
+    normalized.includes("pitago")
+  ) {
+    return "geometry-proof";
+  }
+
+  return "abstract-math";
+}
+
+function fallbackLesson(prompt, language) {
+  if (language === "vi") {
+    return {
+      opening: `Ta sẽ nhìn "${prompt}" như một ý tưởng toán học trực quan thay vì chỉ là định nghĩa.`,
+      steps: [
+        { atSeconds: 0, text: "Bắt đầu bằng một khung hình đơn giản để thấy các đối tượng chính." },
+        { atSeconds: 2, text: "Tô sáng từng phần quan trọng để thấy chúng liên hệ với nhau." },
+        { atSeconds: 4, text: "Biến đổi hoặc di chuyển hình để lộ ra quy luật bên trong." },
+        { atSeconds: 6, text: "Kết thúc bằng ý chính cần nhớ dưới dạng hình ảnh." },
+      ],
+      followUpQuestion: "Bạn thử nói lại ý chính bằng một câu được không?",
+    };
+  }
+
+  return {
+    opening: `Let's treat "${prompt}" as a visual math idea instead of only a definition.`,
+    steps: [
+      { atSeconds: 0, text: "Start with a clean scene that shows the main objects." },
+      { atSeconds: 2, text: "Highlight one important part at a time." },
+      { atSeconds: 4, text: "Move or transform the objects to reveal the relationship." },
+      { atSeconds: 6, text: "End on the key idea as a memorable visual takeaway." },
+    ],
+    followUpQuestion: "Can you restate the key idea in one sentence?",
+  };
+}
+
+export function createPromptTemplate(prompt, language = "en") {
+  const title = prompt.replace(/^giải thích\s+/i, "").trim() || prompt;
+
+  return {
+    id: slugifyConcept(prompt),
+    title,
+    visualKind: inferVisualKind(prompt),
+    captionTimings: defaultCaptionTimings,
+    storyboard: [
+      `Introduce the concept visually: ${prompt}.`,
+      "Show the simplest objects or axes needed for the idea.",
+      "Animate one relationship or transformation step by step.",
+      "End with a compact visual takeaway and a check question.",
+    ],
+    videoStyle: "3Blue1Brown-like dark canvas, glowing math shapes, smooth geometric explainer",
+    fallbackLessons: {
+      en: fallbackLesson(prompt, "en"),
+      vi: fallbackLesson(prompt, language),
+    },
+  };
 }
 
 export function getTemplateSummaries() {
-  return templates.map(({ id, title, storyboard, videoStyle }) => ({
-    id,
-    title,
-    storyboard,
-    videoStyle,
-  }));
+  return [
+    {
+      id: "dynamic-prompt-video",
+      title: "Dynamic prompt video",
+      storyboard: [
+        "Use the prompt to generate a short visual lesson.",
+        "Render a 10-second MP4 scene from the selected visual style.",
+      ],
+      videoStyle: "3Blue1Brown-like dynamic visual math explainer",
+    },
+  ];
 }

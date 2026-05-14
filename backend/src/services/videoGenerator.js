@@ -24,6 +24,35 @@ function buildPythagoreanFilter() {
   ].join(",");
 }
 
+function buildCartesianFilter() {
+  return [
+    "drawbox=x=64:y=40:w=1152:h=640:color=0x172033:t=3",
+    "drawbox=x=160:y=360:w=960:h=4:color=0x94a3b8@0.45:t=fill",
+    "drawbox=x=640:y=100:w=4:h=520:color=0x94a3b8@0.45:t=fill",
+    "drawbox=x=320:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
+    "drawbox=x=480:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
+    "drawbox=x=800:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
+    "drawbox=x=960:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
+    "drawbox=x=160:y=200:w=960:h=2:color=0x334155@0.65:t=fill",
+    "drawbox=x=160:y=280:w=960:h=2:color=0x334155@0.65:t=fill",
+    "drawbox=x=160:y=440:w=960:h=2:color=0x334155@0.65:t=fill",
+    "drawbox=x=160:y=520:w=960:h=2:color=0x334155@0.65:t=fill",
+    "drawbox=x=637:y=357:w=10:h=10:color=0xf8fafc:t=fill:enable='gte(t,2)'",
+    "drawbox=x=640:y=360:w=240:h=5:color=0x38bdf8:t=fill:enable='gte(t,4)'",
+    "drawbox=x=875:y=200:w=5:h=165:color=0x22c55e:t=fill:enable='gte(t,5.5)'",
+    "drawbox=x=864:y=190:w=28:h=28:color=0xfbbf24:t=fill:enable='gte(t,7)'",
+    "drawbox=x=858:y=184:w=40:h=40:color=0xfbbf24@0.22:t=fill:enable='gte(t,8)'",
+  ].join(",");
+}
+
+function buildFilter(template) {
+  if (template.visualKind === "coordinate-plane") {
+    return buildCartesianFilter();
+  }
+
+  return buildPythagoreanFilter();
+}
+
 export function createVideoGenerator({
   ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg",
   outputDirectory,
@@ -38,7 +67,7 @@ export function createVideoGenerator({
 
     const fileName = `${sanitizeFileName(requestId)}.mp4`;
     const outputPath = path.join(outputDirectory, fileName);
-    const filter = buildPythagoreanFilter(template);
+    const filter = buildFilter(template);
 
     await execFileAsync(ffmpegPath, [
       "-hide_banner",
