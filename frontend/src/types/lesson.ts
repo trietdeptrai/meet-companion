@@ -1,15 +1,9 @@
-export type Audience = "Beginner" | "High school" | "University" | "Professional";
-
-export type VisualMode = "Symbols" | "Graph" | "Story";
-
-export type LessonStatus = "queued" | "generating" | "ready" | "failed";
+export type LessonStatus = "idle" | "queued" | "generating" | "ready" | "failed";
 
 export type GenerateLessonRequest = {
   concept: string;
-  audience: Audience;
-  visualMode: VisualMode;
-  durationSeconds: number;
-  includeNarration: boolean;
+  durationSeconds?: number;
+  language?: string;
 };
 
 export type StoryboardStep = {
@@ -20,13 +14,51 @@ export type StoryboardStep = {
 
 export type LessonPreview = {
   id: string;
+  projectId?: string;
   title: string;
   status: LessonStatus;
-  formula: string;
-  symbols: string[];
+  progress: number;
+  currentStage?: string;
   storyboard: StoryboardStep[];
   videoUrl?: string;
-  intelligenceSource?: "openai" | "template-fallback";
+  intelligenceSource?: "openai";
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export type VideoJobSnapshot = {
+  job_id: string;
+  project_id: string;
+  status: string;
+  current_stage?: string;
+  progress?: number;
+  message?: string;
+  title?: string;
+  config?: {
+    normalized_concept?: string;
+  };
+  intelligenceSource?: "openai";
+  video?: {
+    url?: string;
+    durationSeconds?: number;
+    mimeType?: string;
+  };
+  tutor?: {
+    opening?: string;
+    steps?: Array<{
+      atSeconds: number;
+      text: string;
+    }>;
+    followUpQuestion?: string;
+  };
+  artifacts?: Array<{
+    artifact_type: string;
+    url?: string;
+    storage_key?: string;
+    mime_type?: string;
+  }>;
+  error_code?: string;
+  error_message?: string;
 };
 
 export type ApiErrorResponse = {

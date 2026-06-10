@@ -7,6 +7,6 @@
     "start": "npm --prefix backend start",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "test": "npm --prefix backend test && npm --prefix frontend run typecheck"
+    "test": "npm --prefix backend test && npm --prefix frontend test && npm --prefix frontend run typecheck"
   }
 }

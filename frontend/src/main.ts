@@ -1,52 +1,20 @@
-import { generateLesson } from "./api/lessonApi";
+import { generateLesson, LessonApiError } from "./api/lessonApi";
 import "./styles.css";
-import type {
-  Audience,
-  GenerateLessonRequest,
-  LessonPreview,
-  StoryboardStep,
-  VisualMode,
-} from "./types/lesson";
+import type { GenerateLessonRequest, LessonPreview, StoryboardStep, VideoJobSnapshot } from "./types/lesson";
 
-type AppState = GenerateLessonRequest & {
-  lesson: LessonPreview;
+type AppState = {
+  concept: string;
   isGenerating: boolean;
+  errorCode: string;
   errorMessage: string;
-};
-
-const initialLesson: LessonPreview = {
-  id: "initial",
-  title: "Pythagorean theorem",
-  status: "ready",
-  formula: "a² + b² = c²",
-  symbols: ["a", "b", "c", "c²"],
-  storyboard: [
-    {
-      index: 1,
-      title: "Draw the triangle",
-      description: "Start with a right triangle and name the two shorter sides a and b.",
-    },
-    {
-      index: 2,
-      title: "Mark the hypotenuse",
-      description: "The longest side is c.",
-    },
-    {
-      index: 3,
-      title: "Compare areas",
-      description: "The two smaller square areas add up to the large square area.",
-    },
-  ],
+  job?: VideoJobSnapshot;
+  lesson?: LessonPreview;
 };
 
 const state: AppState = {
-  concept: "Giải thích định lý Pytagore bằng hình ảnh đơn giản",
-  audience: "Beginner",
-  visualMode: "Symbols",
-  durationSeconds: 10,
-  includeNarration: true,
-  lesson: initialLesson,
+  concept: "Giải thích hệ tọa độ Decartes",
   isGenerating: false,
+  errorCode: "",
   errorMessage: "",
 };
 
@@ -55,6 +23,25 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) {
   throw new Error("Missing #app root element");
 }
+
+const pipelineStages = [
+  { id: "VALIDATING_INPUT", label: "Validate" },
+  { id: "CONCEPT_ANALYSIS", label: "Analyze" },
+  { id: "KNOWLEDGE_PLAN", label: "Plan" },
+  { id: "VISUAL_PLAN", label: "Visuals" },
+  { id: "STORYBOARD", label: "Storyboard" },
+  { id: "SCENE_DSL", label: "Scene DSL" },
+  { id: "RENDERING", label: "Render" },
+  { id: "RENDER_QA", label: "QA" },
+  { id: "POSTPROCESSING", label: "Package" },
+  { id: "COMPLETED", label: "Done" },
+];
+
+const quickPrompts = [
+  "Giải thích định lý Pytagore",
+  "Giải thích hệ tọa độ Decartes",
+  "Explain derivatives as slope",
+];
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (character) => {
@@ -69,22 +56,79 @@ const escapeHtml = (value: string): string =>
     return entities[character];
   });
 
-const normalizeConcept = (value: string): string => value.trim() || "Untitled concept";
+const normalizeConcept = (value: string): string => value.trim() || "Giải thích định lý Pytagore";
 
-const statusLabel = (): string => {
-  if (state.isGenerating) {
-    return "Generating";
-  }
-
-  if (state.errorMessage) {
-    return "Needs attention";
-  }
-
-  return state.lesson.status === "ready" ? "Storyboard ready" : state.lesson.status;
+const humanStage = (stage?: string): string => {
+  if (!stage) return "Waiting";
+  return stage
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 };
 
-const renderTimeline = (storyboard: StoryboardStep[]): string =>
-  storyboard
+const progressValue = (): number => {
+  if (state.job?.progress !== undefined) return state.job.progress;
+  if (state.lesson?.progress !== undefined) return state.lesson.progress;
+  return state.isGenerating ? 4 : 0;
+};
+
+const statusText = (): string => {
+  if (state.errorMessage) {
+    return state.errorCode || "Failed";
+  }
+
+  if (state.isGenerating) {
+    return `${humanStage(state.job?.current_stage)} ${progressValue()}%`;
+  }
+
+  if (state.lesson?.status === "ready") {
+    return "Video ready";
+  }
+
+  return "Ready";
+};
+
+const currentStageIndex = (): number => {
+  const current = state.errorMessage ? state.job?.current_stage : state.lesson?.currentStage ?? state.job?.current_stage;
+  const index = pipelineStages.findIndex((stage) => stage.id === current);
+  if (index >= 0) return index;
+  return state.isGenerating ? 0 : -1;
+};
+
+const renderPipeline = (): string => {
+  const activeIndex = currentStageIndex();
+  const failed = Boolean(state.errorMessage);
+
+  return pipelineStages
+    .map((stage, index) => {
+      const classNames = ["pipeline-step"];
+      if (index < activeIndex || state.lesson?.status === "ready") classNames.push("is-complete");
+      if (index === activeIndex && state.isGenerating) classNames.push("is-active");
+      if (index === activeIndex && failed) classNames.push("is-failed");
+
+      return `
+        <li class="${classNames.join(" ")}">
+          <span></span>
+          <strong>${escapeHtml(stage.label)}</strong>
+        </li>
+      `;
+    })
+    .join("");
+};
+
+const renderTimeline = (storyboard: StoryboardStep[] = []): string => {
+  if (storyboard.length === 0) {
+    return `
+      <article class="empty-timeline">
+        <span>01</span>
+        <strong>Waiting for a completed backend job</strong>
+        <p>The tutor beats will appear here after OpenAI planning and video rendering finish.</p>
+      </article>
+    `;
+  }
+
+  return storyboard
     .map(
       (step) => `
         <article>
@@ -95,180 +139,150 @@ const renderTimeline = (storyboard: StoryboardStep[]): string =>
       `,
     )
     .join("");
+};
+
+const renderVideoFrame = (): string => {
+  if (state.lesson?.videoUrl) {
+    return `
+      <video
+        class="lesson-video"
+        src="${escapeHtml(state.lesson.videoUrl)}"
+        controls
+        autoplay
+        muted
+        playsinline
+      ></video>
+    `;
+  }
+
+  if (state.errorMessage) {
+    return `
+      <div class="video-state is-error">
+        <strong>${escapeHtml(state.errorCode || "Job failed")}</strong>
+        <p>${escapeHtml(state.errorMessage)}</p>
+      </div>
+    `;
+  }
+
+  if (state.isGenerating) {
+    return `
+      <div class="video-state is-loading" aria-live="polite">
+        <div class="loader-grid" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <strong>${escapeHtml(humanStage(state.job?.current_stage))}</strong>
+        <p>Backend job ${escapeHtml(state.job?.job_id ?? "queued")} is running.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="video-state">
+      <div class="axis-preview" aria-hidden="true">
+        <span class="axis x-axis"></span>
+        <span class="axis y-axis"></span>
+        <span class="point"></span>
+      </div>
+      <strong>Ask for a visual explanation</strong>
+      <p>The generated 10-second MP4 will replace this preview.</p>
+    </div>
+  `;
+};
 
 const render = (): void => {
-  const [symbolA = "A", symbolB = "B", symbolC = "C", symbolD = "?"] = state.lesson.symbols;
-
   app.innerHTML = `
     <main class="app-shell">
-      <header class="topbar" aria-label="Primary navigation">
-        <a class="brand" href="#" aria-label="SymbolTutor home">
-          <span class="brand-mark">S</span>
-          <span>SymbolTutor</span>
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Visual Tutor home">
+          <span class="brand-mark">VT</span>
+          <span>Visual Tutor</span>
         </a>
-
-        <nav class="nav-pod" aria-label="Main menu">
-          <a href="#">Explore</a>
-          <a href="#">Library</a>
-          <a href="#">Classroom</a>
-        </nav>
-
-        <div class="account-actions">
-          <button class="icon-button" type="button" aria-label="Search">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
-            </svg>
-          </button>
-          <button class="ghost-button" type="button">Sign in</button>
-          <button class="solid-button" type="button">Join beta</button>
-        </div>
+        <span class="runtime-pill">PRD job pipeline</span>
       </header>
 
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="pattern-field" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-
-        <div class="hero-copy">
-          <p class="eyebrow">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4" />
-            </svg>
-            Symbol-first AI lessons
-          </p>
-          <h1 id="hero-title">Turn any concept into an animated tutor video.</h1>
-          <p class="hero-subtitle">
-            Type the topic, pick a learning style, and preview a visual explanation
-            built from symbols, motion, narration beats, and checkpoints.
+      <section class="composer" aria-labelledby="composer-title">
+        <div class="composer-copy">
+          <p class="eyebrow">Screen-share ready tutor</p>
+          <h1 id="composer-title">Prompt in. Video out.</h1>
+          <p>
+            The frontend now waits for the backend video job: OpenAI planning first,
+            local render second, then a playable MP4.
           </p>
         </div>
 
         <form class="concept-form" id="conceptForm">
-          <label class="visually-hidden" for="conceptInput">Concept to learn</label>
+          <label class="visually-hidden" for="conceptInput">Concept to explain</label>
           <input
             id="conceptInput"
             name="concept"
             type="text"
             value="${escapeHtml(state.concept)}"
             autocomplete="off"
-            placeholder="What concept should the AI explain?"
+            placeholder="Giải thích một khái niệm toán học..."
+            ${state.isGenerating ? "disabled" : ""}
           />
-          <button class="generate-button" type="submit" aria-label="Generate lesson" ${state.isGenerating ? "disabled" : ""}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14m-6-6 6 6-6 6" />
-            </svg>
+          <button class="generate-button" type="submit" ${state.isGenerating ? "disabled" : ""}>
+            ${state.isGenerating ? "Generating" : "Generate video"}
           </button>
         </form>
 
-        <div class="quick-prompts" aria-label="Example concepts">
-          <button type="button" data-prompt="Giải thích định lý Pytagore">Định lý Pytagore</button>
-          <button type="button" data-prompt="Explain the Pythagorean theorem simply">Pythagorean theorem</button>
-          <button type="button" data-prompt="Tam giác vuông và cạnh huyền">Tam giác vuông</button>
+        <div class="quick-prompts" aria-label="Example prompts">
+          ${quickPrompts
+            .map(
+              (prompt) => `
+                <button type="button" data-prompt="${escapeHtml(prompt)}" ${state.isGenerating ? "disabled" : ""}>
+                  ${escapeHtml(prompt)}
+                </button>
+              `,
+            )
+            .join("")}
         </div>
       </section>
 
-      <section class="workspace" aria-label="Lesson generator workspace">
-        <aside class="control-panel">
-          <div class="panel-heading">
-            <p class="section-kicker">Lesson setup</p>
-            <h2>Shape the explanation</h2>
-          </div>
-
-          <div class="field-group">
-            <label for="audience">Audience</label>
-            <select id="audience">
-              ${["Beginner", "High school", "University", "Professional"]
-                .map(
-                  (audience) =>
-                    `<option ${state.audience === audience ? "selected" : ""}>${audience}</option>`,
-                )
-                .join("")}
-            </select>
-          </div>
-
-          <div class="field-group">
-            <label>Visual mode</label>
-            <div class="segmented" role="group" aria-label="Visual mode">
-              ${["Symbols", "Graph", "Story"]
-                .map(
-                  (mode) =>
-                    `<button class="${state.visualMode === mode ? "active" : ""}" type="button" data-mode="${mode}">${mode}</button>`,
-                )
-                .join("")}
+      <section class="workspace" aria-label="Backend video job">
+        <section class="job-panel" aria-labelledby="job-title">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">Backend status</p>
+              <h2 id="job-title">${escapeHtml(statusText())}</h2>
             </div>
-          </div>
-
-          <div class="field-group">
-            <label for="duration">Video length</label>
-            <div class="range-row">
-              <input id="duration" type="range" min="10" max="10" value="${state.durationSeconds}" />
-              <output id="durationOutput" for="duration">${state.durationSeconds}s</output>
-            </div>
-          </div>
-
-          <div class="toggle-row">
-            <span>
-              <strong>Narration</strong>
-              <small>Generate voiceover script</small>
+            <span class="status-pill ${state.errorMessage ? "is-error" : state.isGenerating ? "is-active" : ""}">
+              ${escapeHtml(state.job?.status ?? state.lesson?.status ?? "idle")}
             </span>
-            <label class="switch">
-              <input id="narration" type="checkbox" ${state.includeNarration ? "checked" : ""} />
-              <span></span>
-            </label>
           </div>
 
-          <button class="wide-action" type="button" id="regenerateButton" ${state.isGenerating ? "disabled" : ""}>
-            ${state.isGenerating ? "Generating..." : "Generate storyboard"}
-          </button>
-        </aside>
+          <div class="progress-track" aria-label="Job progress">
+            <span style="width: ${progressValue()}%"></span>
+          </div>
+
+          <ol class="pipeline-list">
+            ${renderPipeline()}
+          </ol>
+
+          ${
+            state.job?.job_id
+              ? `<p class="job-id">Job <code>${escapeHtml(state.job.job_id)}</code></p>`
+              : ""
+          }
+        </section>
 
         <section class="preview-stage" aria-labelledby="preview-title">
-          <div class="stage-header">
+          <div class="panel-header">
             <div>
               <p class="section-kicker">Video preview</p>
-              <h2 id="preview-title">${escapeHtml(state.lesson.title)}</h2>
+              <h2 id="preview-title">${escapeHtml(state.lesson?.title ?? state.concept)}</h2>
             </div>
-            <span class="status-pill ${state.errorMessage ? "is-error" : ""}" id="statusPill">${escapeHtml(statusLabel())}</span>
+            <span class="duration-pill">10s max</span>
           </div>
-
-          ${
-            state.errorMessage
-              ? `<p class="error-banner">${escapeHtml(state.errorMessage)}</p>`
-              : ""
-          }
 
           <div class="video-frame">
-            ${
-              state.lesson.videoUrl
-                ? `<video class="template-video" src="${escapeHtml(state.lesson.videoUrl)}" controls autoplay muted playsinline loop></video>`
-                : `<div class="orbital-lesson" aria-hidden="true">
-                    <span class="symbol node-a">${escapeHtml(symbolA)}</span>
-                    <span class="symbol node-b">${escapeHtml(symbolB)}</span>
-                    <span class="symbol node-c">${escapeHtml(symbolC)}</span>
-                    <span class="symbol node-d">${escapeHtml(symbolD)}</span>
-                    <div class="orbit orbit-one"></div>
-                    <div class="orbit orbit-two"></div>
-                    <div class="formula-card">
-                      <span>${state.visualMode}</span>
-                      <strong>${escapeHtml(state.lesson.formula)}</strong>
-                    </div>
-                  </div>`
-            }
-          </div>
-
-          ${
-            state.lesson.intelligenceSource
-              ? `<p class="source-note">Tutor script source: ${escapeHtml(state.lesson.intelligenceSource)}</p>`
-              : ""
-          }
-
-          <div class="timeline" aria-label="Generated lesson timeline">
-            ${renderTimeline(state.lesson.storyboard)}
+            ${renderVideoFrame()}
           </div>
         </section>
+      </section>
+
+      <section class="timeline" aria-label="Tutor narration beats">
+        ${renderTimeline(state.lesson?.storyboard)}
       </section>
     </main>
   `;
@@ -281,30 +295,40 @@ const readForm = (): GenerateLessonRequest => {
 
   return {
     concept: normalizeConcept(conceptInput?.value ?? state.concept),
-    audience: state.audience,
-    visualMode: state.visualMode,
-    durationSeconds: state.durationSeconds,
-    includeNarration: state.includeNarration,
+    durationSeconds: 10,
   };
 };
 
 const submitLesson = async (nextConcept?: string): Promise<void> => {
-  const payload = readForm();
+  if (state.isGenerating) return;
 
-  if (nextConcept) {
-    payload.concept = nextConcept;
-  }
+  const payload = readForm();
+  if (nextConcept) payload.concept = nextConcept;
 
   state.concept = payload.concept;
   state.isGenerating = true;
+  state.errorCode = "";
   state.errorMessage = "";
+  state.job = undefined;
+  state.lesson = undefined;
   render();
 
   try {
-    const lesson = await generateLesson(payload);
+    const lesson = await generateLesson(payload, {
+      onJobUpdate: (job) => {
+        state.job = job;
+        render();
+      },
+    });
     state.lesson = lesson;
   } catch (error) {
-    state.errorMessage = error instanceof Error ? error.message : "Could not generate this lesson.";
+    if (error instanceof LessonApiError) {
+      state.errorCode = error.code ?? "";
+      state.errorMessage = error.message;
+    } else {
+      state.errorCode = "CLIENT_ERROR";
+      state.errorMessage = error instanceof Error ? error.message : "Could not generate this video.";
+    }
   } finally {
     state.isGenerating = false;
     render();
@@ -317,39 +341,11 @@ const bindEvents = (): void => {
     void submitLesson();
   });
 
-  document.querySelector<HTMLButtonElement>("#regenerateButton")?.addEventListener("click", () => {
-    void submitLesson();
-  });
-
-  document.querySelector<HTMLSelectElement>("#audience")?.addEventListener("change", (event) => {
-    state.audience = (event.currentTarget as HTMLSelectElement).value as Audience;
-  });
-
-  document.querySelector<HTMLInputElement>("#duration")?.addEventListener("input", (event) => {
-    state.durationSeconds = Number((event.currentTarget as HTMLInputElement).value);
-    const output = document.querySelector<HTMLOutputElement>("#durationOutput");
-
-    if (output) {
-      output.textContent = `${state.durationSeconds}s`;
-    }
-  });
-
-  document.querySelector<HTMLInputElement>("#narration")?.addEventListener("change", (event) => {
-    state.includeNarration = (event.currentTarget as HTMLInputElement).checked;
-  });
-
   document.querySelectorAll<HTMLButtonElement>("[data-prompt]").forEach((button) => {
     button.addEventListener("click", () => {
       const prompt = button.dataset.prompt ?? state.concept;
       state.concept = prompt;
       void submitLesson(prompt);
-    });
-  });
-
-  document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.visualMode = button.dataset.mode as VisualMode;
-      render();
     });
   });
 };
