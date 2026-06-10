@@ -15,7 +15,7 @@ describe("Visual Tutor backend", () => {
       status: "ok",
       openaiConfigured: false,
     });
-    expect(response.body.templates).toContain("pythagorean-theorem");
+    expect(response.body.templates).toContain("dynamic-prompt-video");
   });
 
   test("POST /api/tutor/explain rejects an empty prompt", async () => {
@@ -61,11 +61,10 @@ describe("Visual Tutor backend", () => {
     expect(generateLesson).toHaveBeenCalledOnce();
     expect(generateVideo).toHaveBeenCalledOnce();
     expect(response.body).toMatchObject({
-      concept: "pythagorean-theorem",
+      concept: "giai-thich-inh-ly-pytagore",
       status: "ready",
       intelligenceSource: "openai",
       video: {
-        templateId: "pythagorean-theorem",
         generated: true,
         mimeType: "video/mp4",
         durationSeconds: 10,
@@ -107,10 +106,10 @@ describe("Visual Tutor backend", () => {
       .expect(200);
 
     expect(response.body).toMatchObject({
-      concept: "cartesian-coordinates",
+      concept: "giai-thich-he-toa-o-decartes",
       status: "ready",
       video: {
-        templateId: "cartesian-coordinates",
+        templateId: "giai-thich-he-toa-o-decartes",
         durationSeconds: 10,
         generated: true,
       },

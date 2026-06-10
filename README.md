@@ -10,8 +10,14 @@ npm --prefix frontend install
 cp backend/.env.example backend/.env
 ```
 
-Add `OPENAI_API_KEY` to `backend/.env` for OpenAI-generated tutor scripts. The
-backend uses `ffmpeg` to create a fresh 10-second MP4 per lesson request.
+Add `OPENAI_API_KEY` to `backend/.env` before using the async job API. The PRD
+pipeline requires OpenAI planning; without it, `/api/v1/video-jobs` fails during
+planning instead of rendering a fake fallback video. The backend uses `ffmpeg`
+to create a fresh 10-second MP4 after planning succeeds.
+For local simplicity, backend job/project state is stored in SQLite at
+`backend/data/visualexplain.sqlite`, generated videos go to
+`backend/public/generated/`, intermediate JSON artifacts go to
+`backend/data/artifacts/`, and logs go to `backend/logs/app.jsonl`.
 
 ## Run Combined App
 
@@ -35,6 +41,22 @@ npm run dev:frontend
 ```
 
 Open `http://localhost:5173`. Vite proxies `/api` and `/videos` to the backend.
+
+## Backend Job API
+
+```bash
+curl -X POST http://localhost:8787/api/v1/video-jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"concept":"Giải thích hệ toạ độ Decartes","language":"vi"}'
+```
+
+Then poll:
+
+```bash
+curl http://localhost:8787/api/v1/video-jobs/<job_id>
+curl http://localhost:8787/api/v1/projects/<project_id>
+curl http://localhost:8787/api/v1/metrics
+```
 
 ## Test
 
