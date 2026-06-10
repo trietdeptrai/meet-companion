@@ -12,7 +12,7 @@ type AppState = {
 };
 
 const state: AppState = {
-  concept: "Giải thích hệ tọa độ Decartes",
+  concept: "Giải thích tích phân là diện tích dưới đường cong",
   isGenerating: false,
   errorCode: "",
   errorMessage: "",
@@ -38,9 +38,9 @@ const pipelineStages = [
 ];
 
 const quickPrompts = [
-  "Giải thích định lý Pytagore",
-  "Giải thích hệ tọa độ Decartes",
-  "Explain derivatives as slope",
+  "Giải thích tích phân là diện tích dưới đường cong",
+  "Giải thích đạo hàm như độ dốc tức thời",
+  "Giải thích phép nhân ma trận bằng biến đổi không gian",
 ];
 
 const escapeHtml = (value: string): string =>
@@ -56,7 +56,8 @@ const escapeHtml = (value: string): string =>
     return entities[character];
   });
 
-const normalizeConcept = (value: string): string => value.trim() || "Giải thích định lý Pytagore";
+const normalizeConcept = (value: string): string =>
+  value.trim() || "Giải thích tích phân là diện tích dưới đường cong";
 
 const humanStage = (stage?: string): string => {
   if (!stage) return "Waiting";

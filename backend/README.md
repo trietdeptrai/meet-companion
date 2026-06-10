@@ -72,6 +72,12 @@ same Node process. The requested duration is capped to 10 seconds for local
 speed. If OpenAI is not configured, the job stops during planning and does not
 create a `video_mp4` artifact.
 
+`/api/v1/video-jobs` does not choose from fixed concept videos. OpenAI planning
+must generate `conceptAnalysis`, `visualPlan`, `storyboard`, and `sceneDsl` for
+the requested concept. The local renderer then compiles generic scene DSL
+objects such as axes, curves, rectangles, regions, lines, dots, and labels into
+an MP4.
+
 ```bash
 curl http://localhost:8787/api/v1/video-jobs/<job_id>
 curl http://localhost:8787/api/v1/projects/<project_id>

@@ -33,12 +33,12 @@ describe("generateLesson", () => {
         return jsonResponse({
           job_id: "job-123",
           project_id: "project-123",
-          title: "Hệ tọa độ Decartes",
+          title: "Tích phân",
           status: "COMPLETED",
           current_stage: "COMPLETED",
           progress: 100,
           config: {
-            normalized_concept: "Giải thích hệ tọa độ Decartes",
+            normalized_concept: "Giải thích tích phân là diện tích dưới đường cong",
           },
           intelligenceSource: "openai",
           video: {
@@ -47,13 +47,13 @@ describe("generateLesson", () => {
             mimeType: "video/mp4",
           },
           tutor: {
-            opening: "Hệ tọa độ là hai trục vuông góc dùng để định vị điểm.",
+            opening: "Tích phân cộng rất nhiều mảnh diện tích nhỏ dưới một đường cong.",
             steps: [
-              { atSeconds: 0, text: "Vẽ trục ngang x." },
-              { atSeconds: 3, text: "Vẽ trục dọc y." },
-              { atSeconds: 6, text: "Đọc điểm bằng cặp số có thứ tự." },
+              { atSeconds: 0, text: "Vẽ trục và một đường cong." },
+              { atSeconds: 3, text: "Chia vùng dưới đường cong thành hình chữ nhật." },
+              { atSeconds: 6, text: "Cộng các diện tích nhỏ để xấp xỉ tích phân." },
             ],
-            followUpQuestion: "Trong điểm (2, 3), số 2 cho biết điều gì?",
+            followUpQuestion: "Nếu hình chữ nhật mỏng hơn thì xấp xỉ thay đổi ra sao?",
           },
           artifacts: [
             {
@@ -72,7 +72,7 @@ describe("generateLesson", () => {
 
     const lesson = await generateLesson(
       {
-        concept: "Giải thích hệ tọa độ Decartes",
+        concept: "Giải thích tích phân là diện tích dưới đường cong",
         durationSeconds: 10,
       },
       { pollIntervalMs: 0 },
@@ -84,7 +84,7 @@ describe("generateLesson", () => {
     expect(lesson).toMatchObject({
       id: "job-123",
       status: "ready",
-      title: "Hệ tọa độ Decartes",
+      title: "Tích phân",
       videoUrl: "/generated/job-123.mp4",
       intelligenceSource: "openai",
       progress: 100,

@@ -1,8 +1,5 @@
 import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { ApiError } from "./tutorService.js";
-import { createPromptTemplate } from "../templates.js";
 
 const terminalStatuses = new Set([
   "COMPLETED",
@@ -11,6 +8,8 @@ const terminalStatuses = new Set([
   "FAILED_RENDER",
   "FAILED_POSTPROCESS",
 ]);
+
+const defaultCaptionTimings = [0, 2, 4, 6];
 
 function now() {
   return new Date().toISOString();
@@ -38,6 +37,35 @@ function detectLanguage(prompt) {
     return "vi";
   }
   return "en";
+}
+
+function searchableText(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function slugifyConcept(prompt) {
+  const normalized = searchableText(prompt)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized.slice(0, 48) || "visual-math-concept";
+}
+
+function titleFromConcept(concept) {
+  return concept.replace(/^giải thích\s+/i, "").trim() || concept;
+}
+
+function createRequestContext(config) {
+  return {
+    id: slugifyConcept(config.normalized_concept),
+    title: titleFromConcept(config.normalized_concept),
+    duration_sec: config.duration_sec,
+    language: config.language,
+    level: config.level,
+    style: config.style,
+  };
 }
 
 function validateRequest(payload) {
@@ -75,7 +103,7 @@ function assertOpenAIPlanningAvailable(hasOpenAIKey, generateLesson) {
   }
 }
 
-function normalizeLesson(lesson, template) {
+function normalizeLesson(lesson) {
   if (
     !lesson ||
     typeof lesson.opening !== "string" ||
@@ -105,7 +133,7 @@ function normalizeLesson(lesson, template) {
       return {
         atSeconds: Number.isFinite(Number(step.atSeconds))
           ? Number(step.atSeconds)
-          : template.captionTimings[index] ?? 0,
+          : defaultCaptionTimings[index] ?? 0,
         text,
       };
     }),
@@ -113,90 +141,114 @@ function normalizeLesson(lesson, template) {
   };
 }
 
-function createStoryboard(template, config) {
-  const sceneDuration = Math.max(1, Math.floor(config.duration_sec / template.storyboard.length));
+function stringArray(value) {
+  return Array.isArray(value) ? value.map((entry) => String(entry)).filter(Boolean) : [];
+}
+
+function assertObject(value, code, message) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ApiError(502, code, message);
+  }
+}
+
+function normalizeConceptAnalysis(plannerOutput, requestContext, config) {
+  const source = plannerOutput?.conceptAnalysis;
+  assertObject(
+    source,
+    "PLANNER_RESPONSE_INVALID",
+    "OpenAI planning did not include concept analysis.",
+  );
+
   return {
-    title: template.title,
+    concept_id: String(source.concept_id || requestContext.id),
+    normalized_name: config.normalized_concept,
+    domain: String(source.domain || (config.domain === "auto" ? "math" : config.domain)),
+    subdomain: String(source.subdomain || "general"),
+    prerequisites: stringArray(source.prerequisites),
+    key_claims: stringArray(source.key_claims),
+    common_misconceptions: stringArray(source.common_misconceptions),
+    best_explanation_modes: stringArray(source.best_explanation_modes),
+    unsafe_or_inappropriate: Boolean(source.unsafe_or_inappropriate),
+    rejection_reason: source.rejection_reason ?? null,
+  };
+}
+
+function normalizeVisualPlan(plannerOutput) {
+  const source = plannerOutput?.visualPlan;
+  assertObject(
+    source,
+    "PLANNER_RESPONSE_INVALID",
+    "OpenAI planning did not include a visual plan.",
+  );
+
+  return {
+    selected_pattern_id: String(source.selected_pattern_id || "scene_dsl"),
+    visual_core: String(source.visual_core || ""),
+    visual_rules: stringArray(source.visual_rules),
+    color_logic: {
+      primary: String(source.color_logic?.primary || "cyan"),
+      secondary: String(source.color_logic?.secondary || "yellow"),
+      highlight: String(source.color_logic?.highlight || "orange"),
+    },
+  };
+}
+
+function normalizeStoryboard(plannerOutput, config) {
+  const source = plannerOutput?.storyboard;
+  assertObject(
+    source,
+    "PLANNER_RESPONSE_INVALID",
+    "OpenAI planning did not include a storyboard.",
+  );
+  if (!Array.isArray(source.scenes) || source.scenes.length === 0) {
+    throw new ApiError(502, "PLANNER_RESPONSE_INVALID", "OpenAI storyboard has no scenes.");
+  }
+
+  return {
     total_duration_sec: config.duration_sec,
-    scenes: template.storyboard.map((goal, index) => ({
-      scene_id: `s${index + 1}`,
-      duration_sec: sceneDuration,
-      learning_goal: goal,
-      visual_goal: goal,
-      objects:
-        template.visualKind === "coordinate-plane"
-          ? ["x_axis", "y_axis", "origin", "point"]
-          : ["shape_a", "shape_b", "relationship", "highlight"],
-      animations: ["fade_in", "highlight", "move_or_transform"],
-      camera: index === 0 ? "static_center" : "gentle_zoom",
-      labels: index === template.storyboard.length - 1 ? ["key takeaway"] : [],
+    scenes: source.scenes.slice(0, 5).map((scene, index) => ({
+      scene_id: String(scene.scene_id || `s${index + 1}`),
+      duration_sec: Math.max(1, Number(scene.duration_sec) || 2),
+      learning_goal: String(scene.learning_goal || scene.goal || "Explain the concept visually."),
+      visual_goal: String(scene.visual_goal || scene.learning_goal || "Show the visual idea."),
+      objects: stringArray(scene.objects),
+      animations: stringArray(scene.animations),
+      camera: String(scene.camera || "static_center"),
+      labels: stringArray(scene.labels),
     })),
   };
 }
 
-function createSceneDsl(template, storyboard) {
+function normalizeSceneDsl(plannerOutput) {
+  const source = plannerOutput?.sceneDsl;
+  assertObject(
+    source,
+    "PLANNER_RESPONSE_INVALID",
+    "OpenAI planning did not include scene DSL.",
+  );
+  if (!Array.isArray(source.scenes) || source.scenes.length === 0) {
+    throw new ApiError(502, "PLANNER_RESPONSE_INVALID", "OpenAI scene DSL has no scenes.");
+  }
+
   return {
     canvas: {
-      background: "dark",
+      background: String(source.canvas?.background || "dark"),
       resolution: "1280x720",
-      style: template.videoStyle,
+      style: String(source.canvas?.style || "3Blue1Brown-like visual math"),
     },
-    scenes: storyboard.scenes.map((scene) => ({
-      scene_id: scene.scene_id,
-      canvas: {
-        background: "dark",
-        resolution: "1280x720",
-      },
-      objects: scene.objects.map((objectId) => ({
-        id: objectId,
-        type: objectId.includes("axis") ? "axis" : "geometric_object",
-        params: {},
-        style: {
-          stroke: "white",
-          fill: "accent",
-        },
-      })),
-      animations: scene.animations.map((animation) => ({
-        type: animation,
-        target: scene.objects[0] ?? "scene",
-        params: {},
-        duration: 0.8,
-      })),
-      camera: [{ type: scene.camera, duration: 0.8 }],
+    scenes: source.scenes.slice(0, 5).map((scene, sceneIndex) => ({
+      scene_id: String(scene.scene_id || `s${sceneIndex + 1}`),
+      objects: Array.isArray(scene.objects)
+        ? scene.objects.slice(0, 10).map((object, objectIndex) => ({
+            id: String(object.id || `object_${sceneIndex + 1}_${objectIndex + 1}`),
+            type: String(object.type || "geometric_object"),
+            params: object.params && typeof object.params === "object" ? object.params : {},
+            style: object.style && typeof object.style === "object" ? object.style : {},
+          }))
+        : [],
+      animations: Array.isArray(scene.animations) ? scene.animations : [],
+      camera: Array.isArray(scene.camera) ? scene.camera : [],
     })),
-  };
-}
-
-function createVisualPlan(template) {
-  return {
-    selected_pattern_id: template.visualKind,
-    visual_core: template.storyboard.join(" "),
-    visual_rules: [
-      "Use a dark background and high-contrast geometric objects.",
-      "Introduce one idea at a time.",
-      "Show the visual intuition before the formula or summary.",
-    ],
-    color_logic: {
-      primary: "cyan",
-      secondary: "yellow",
-      highlight: "orange",
-    },
-    camera_logic: ["static intro", "gentle zoom", "final wide frame"],
-  };
-}
-
-function createConceptAnalysis(template, config) {
-  return {
-    concept_id: template.id,
-    normalized_name: config.normalized_concept,
-    domain: config.domain === "auto" ? "math" : config.domain,
-    subdomain: template.visualKind,
-    prerequisites: [],
-    key_claims: template.storyboard,
-    common_misconceptions: [],
-    recommended_visual_patterns: [template.visualKind],
-    unsafe_or_inappropriate: false,
-    rejection_reason: null,
   };
 }
 
@@ -312,27 +364,18 @@ export function createVideoJobPipeline({
 
     try {
       const config = job.config;
-      const template = createPromptTemplate(config.normalized_concept, config.language);
-      job.title = template.title;
+      const requestContext = createRequestContext(config);
+      job.title = requestContext.title;
+      let plannerOutput;
 
       const conceptAnalysis = await runStage(job, "CONCEPT_ANALYSIS", 20, async () => {
         assertOpenAIPlanningAvailable(hasOpenAIKey, generateLesson);
-        const value = createConceptAnalysis(template, config);
-        return {
-          artifactType: "concept_analysis_json",
-          fileName: "concept-analysis.json",
-          content: value,
-          value,
-        };
-      });
-
-      const tutor = await runStage(job, "KNOWLEDGE_PLAN", 30, async () => {
-        let lesson;
         try {
-          lesson = await generateLesson({
+          plannerOutput = await generateLesson({
             prompt: config.normalized_concept,
             language: config.language,
-            template,
+            requestContext,
+            durationSeconds: config.duration_sec,
           });
         } catch (error) {
           throw new ApiError(
@@ -342,7 +385,17 @@ export function createVideoJobPipeline({
           );
         }
 
-        const value = normalizeLesson(lesson, template);
+        const value = normalizeConceptAnalysis(plannerOutput, requestContext, config);
+        return {
+          artifactType: "concept_analysis_json",
+          fileName: "concept-analysis.json",
+          content: value,
+          value,
+        };
+      });
+
+      const tutor = await runStage(job, "KNOWLEDGE_PLAN", 30, async () => {
+        const value = normalizeLesson(plannerOutput);
         job.tutor = value;
         job.intelligenceSource = "openai";
         return {
@@ -356,15 +409,18 @@ export function createVideoJobPipeline({
         };
       });
 
-      const visualPlan = await runStage(job, "VISUAL_PLAN", 40, async () => ({
-        artifactType: "visual_plan_json",
-        fileName: "visual-plan.json",
-        content: createVisualPlan(template, conceptAnalysis),
-        value: createVisualPlan(template, conceptAnalysis),
-      }));
+      const visualPlan = await runStage(job, "VISUAL_PLAN", 40, async () => {
+        const value = normalizeVisualPlan(plannerOutput, conceptAnalysis);
+        return {
+          artifactType: "visual_plan_json",
+          fileName: "visual-plan.json",
+          content: value,
+          value,
+        };
+      });
 
       const storyboard = await runStage(job, "STORYBOARD", 52, async () => {
-        const value = createStoryboard(template, config);
+        const value = normalizeStoryboard(plannerOutput, config);
         job.storyboard = value;
         return {
           artifactType: "storyboard_json",
@@ -375,7 +431,7 @@ export function createVideoJobPipeline({
       });
 
       const sceneDsl = await runStage(job, "SCENE_DSL", 64, async () => {
-        const value = createSceneDsl(template, storyboard, visualPlan);
+        const value = normalizeSceneDsl(plannerOutput, storyboard, visualPlan);
         job.scene_dsl = value;
         return {
           artifactType: "scene_dsl_json",
@@ -389,8 +445,11 @@ export function createVideoJobPipeline({
         const video = await generateVideo({
           requestId: job.job_id,
           prompt: config.normalized_concept,
-          template,
+          requestContext,
           tutor,
+          storyboard,
+          visualPlan,
+          sceneDsl,
         });
         job.tutor = tutor;
         job.intelligenceSource = "openai";
@@ -411,8 +470,8 @@ export function createVideoJobPipeline({
             id: randomUUID(),
             job_id: job.job_id,
             attempt_no: 1,
-            scene_name: template.id,
-            command: "local-ffmpeg-render",
+            scene_name: visualPlan.selected_pattern_id,
+            command: "scene-dsl-ffmpeg-render",
             status: "completed",
             stdout: null,
             stderr: null,
@@ -461,7 +520,7 @@ export function createVideoJobPipeline({
       await logger.info("job_completed", {
         job_id: job.job_id,
         project_id: job.project_id,
-        template_version: job.video?.templateId,
+        renderer: job.video?.renderer,
       });
     } catch (error) {
       job.status = job.current_stage === "RENDERING" ? "FAILED_RENDER" : "FAILED_PLANNING";

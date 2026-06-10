@@ -3,7 +3,15 @@ import OpenAI from "openai";
 const lessonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["opening", "steps", "followUpQuestion"],
+  required: [
+    "opening",
+    "steps",
+    "followUpQuestion",
+    "conceptAnalysis",
+    "visualPlan",
+    "storyboard",
+    "sceneDsl",
+  ],
   properties: {
     opening: {
       type: "string",
@@ -20,7 +28,7 @@ const lessonSchema = {
         properties: {
           atSeconds: {
             type: "number",
-            description: "Approximate second in the template video for this caption.",
+            description: "Approximate second in the generated video for this caption.",
           },
           text: {
             type: "string",
@@ -32,6 +40,199 @@ const lessonSchema = {
     followUpQuestion: {
       type: "string",
       description: "One simple question the learner can answer after the video.",
+    },
+    conceptAnalysis: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "concept_id",
+        "domain",
+        "subdomain",
+        "prerequisites",
+        "key_claims",
+        "common_misconceptions",
+        "best_explanation_modes",
+      ],
+      properties: {
+        concept_id: { type: "string" },
+        domain: { type: "string" },
+        subdomain: { type: "string" },
+        prerequisites: { type: "array", items: { type: "string" } },
+        key_claims: { type: "array", items: { type: "string" } },
+        common_misconceptions: { type: "array", items: { type: "string" } },
+        best_explanation_modes: { type: "array", items: { type: "string" } },
+      },
+    },
+    visualPlan: {
+      type: "object",
+      additionalProperties: false,
+      required: ["selected_pattern_id", "visual_core", "visual_rules", "color_logic"],
+      properties: {
+        selected_pattern_id: { type: "string" },
+        visual_core: { type: "string" },
+        visual_rules: { type: "array", items: { type: "string" } },
+        color_logic: {
+          type: "object",
+          additionalProperties: false,
+          required: ["primary", "secondary", "highlight"],
+          properties: {
+            primary: { type: "string" },
+            secondary: { type: "string" },
+            highlight: { type: "string" },
+          },
+        },
+      },
+    },
+    storyboard: {
+      type: "object",
+      additionalProperties: false,
+      required: ["total_duration_sec", "scenes"],
+      properties: {
+        total_duration_sec: { type: "number" },
+        scenes: {
+          type: "array",
+          minItems: 3,
+          maxItems: 5,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["scene_id", "duration_sec", "learning_goal", "visual_goal", "objects", "animations", "camera", "labels"],
+            properties: {
+              scene_id: { type: "string" },
+              duration_sec: { type: "number" },
+              learning_goal: { type: "string" },
+              visual_goal: { type: "string" },
+              objects: { type: "array", items: { type: "string" } },
+              animations: { type: "array", items: { type: "string" } },
+              camera: { type: "string" },
+              labels: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+    sceneDsl: {
+      type: "object",
+      additionalProperties: false,
+      required: ["canvas", "scenes"],
+      properties: {
+        canvas: {
+          type: "object",
+          additionalProperties: false,
+          required: ["background", "resolution", "style"],
+          properties: {
+            background: { type: "string" },
+            resolution: { type: "string" },
+            style: { type: "string" },
+          },
+        },
+        scenes: {
+          type: "array",
+          minItems: 3,
+          maxItems: 5,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["scene_id", "objects", "animations", "camera"],
+            properties: {
+              scene_id: { type: "string" },
+              objects: {
+                type: "array",
+                minItems: 3,
+                maxItems: 10,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["id", "type", "params", "style"],
+                  properties: {
+                    id: { type: "string" },
+                    type: {
+                      type: "string",
+                      enum: ["axis", "curve", "rectangle", "region", "dot", "line", "arrow", "label", "formula", "geometric_object"],
+                    },
+                    params: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: [
+                        "x",
+                        "y",
+                        "width",
+                        "height",
+                        "x1",
+                        "y1",
+                        "x2",
+                        "y2",
+                        "orientation",
+                        "text",
+                        "points",
+                      ],
+                      properties: {
+                        x: { type: "number" },
+                        y: { type: "number" },
+                        width: { type: "number" },
+                        height: { type: "number" },
+                        x1: { type: "number" },
+                        y1: { type: "number" },
+                        x2: { type: "number" },
+                        y2: { type: "number" },
+                        orientation: { type: "string" },
+                        text: { type: "string" },
+                        points: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            additionalProperties: false,
+                            required: ["x", "y"],
+                            properties: {
+                              x: { type: "number" },
+                              y: { type: "number" },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    style: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: ["stroke", "fill", "opacity"],
+                      properties: {
+                        stroke: { type: "string" },
+                        fill: { type: "string" },
+                        opacity: { type: "number" },
+                      },
+                    },
+                  },
+                },
+              },
+              animations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["type", "target", "duration"],
+                  properties: {
+                    type: { type: "string" },
+                    target: { type: "string" },
+                    duration: { type: "number" },
+                  },
+                },
+              },
+              camera: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["type", "duration"],
+                  properties: {
+                    type: { type: "string" },
+                    duration: { type: "number" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 };
@@ -58,14 +259,19 @@ function buildInstructions() {
   ].join(" ");
 }
 
-function buildInput({ prompt, language, template }) {
+function buildInput({ prompt, language, requestContext, template }) {
+  const context = requestContext ?? template ?? {};
   return [
     `Learner request: ${prompt}`,
     `Language: ${language}`,
-    `Template: ${template.title} (${template.id})`,
-    "Template storyboard:",
-    ...template.storyboard.map((step, index) => `${index + 1}. ${step}`),
-    "Return only the structured tutor script.",
+    `Concept id: ${context.id ?? "visual-math-concept"}`,
+    "Return a complete structured plan for a 10-second visual explanation.",
+    "Do not choose visuals from keyword or concept templates. Analyze the concept and create sceneDsl objects that fit the concept's own structure.",
+    "The local renderer can draw these generic object types: axis, curve, rectangle, region, dot, line, arrow, label, formula, geometric_object.",
+    "Use normalized coordinates from 0 to 1 for params x, y, width, height, x1, y1, x2, y2, and curve points.",
+    "Every object params must include x, y, width, height, x1, y1, x2, y2, orientation, text, and points. Put 0, an empty string, or an empty array for unused fields.",
+    "Every object style must include stroke, fill, and opacity. Use simple color names: cyan, yellow, green, orange, white, muted, blue, red.",
+    "For any concept, choose objects because they explain the concept itself. Examples: an accumulation concept may use axes, a curve, rectangles, or regions; a rate-of-change concept may use a curve plus a tangent/secant line; a probability concept may use regions or branching.",
   ].join("\n");
 }
 
@@ -105,6 +311,10 @@ function parseLesson(response) {
       text: String(step.text),
     })),
     followUpQuestion: parsed.followUpQuestion,
+    conceptAnalysis: parsed.conceptAnalysis,
+    visualPlan: parsed.visualPlan,
+    storyboard: parsed.storyboard,
+    sceneDsl: parsed.sceneDsl,
   };
 }
 
@@ -120,11 +330,11 @@ export function createOpenAITutor({
   const openai = client ?? new OpenAI({ apiKey });
 
   return {
-    async generateLesson({ prompt, language, template }) {
+    async generateLesson({ prompt, language, template, requestContext }) {
       const response = await openai.responses.create({
         model,
         instructions: buildInstructions(),
-        input: buildInput({ prompt, language, template }),
+        input: buildInput({ prompt, language, template, requestContext }),
         text: {
           format: {
             type: "json_schema",

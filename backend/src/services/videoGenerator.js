@@ -5,52 +5,244 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const defaultDurationSeconds = 10;
+const width = 1280;
+const height = 720;
+const safe = {
+  left: 96,
+  right: 1184,
+  top: 78,
+  bottom: 642,
+};
+
+const colorMap = {
+  accent: "0x83f2ff",
+  primary: "0x83f2ff",
+  cyan: "0x83f2ff",
+  secondary: "0xffd36b",
+  yellow: "0xffd36b",
+  highlight: "0xffb454",
+  orange: "0xffb454",
+  green: "0x7cffb2",
+  neutral: "0xf8f6ee",
+  white: "0xf8f6ee",
+  muted: "0x94a3b8",
+  blue: "0x60a5fa",
+  red: "0xff7c9c",
+};
 
 function sanitizeFileName(value) {
   return value.replace(/[^a-zA-Z0-9-]/g, "-");
 }
 
-function buildPythagoreanFilter() {
-  return [
-    "drawbox=x=64:y=40:w=1152:h=640:color=0x172033:t=3",
-    "drawbox=x=245:y=495:w=360:h=6:color=0x38bdf8:t=fill",
-    "drawbox=x=245:y=285:w=6:h=216:color=0x38bdf8:t=fill",
-    "drawbox=x=760:y=175:w=265:h=265:color=0xfbbf24:t=5:enable='gte(t,2)'",
-    "drawbox=x=210:y=178:w=160:h=160:color=0x22c55e:t=5:enable='gte(t,3.5)'",
-    "drawbox=x=420:y=345:w=210:h=210:color=0x60a5fa:t=5:enable='gte(t,5)'",
-    "drawbox=x=760:y=175:w=265:h=265:color=0xfbbf24@0.18:t=fill:enable='gte(t,7)'",
-    "drawbox=x=210:y=178:w=160:h=160:color=0x22c55e@0.24:t=fill:enable='between(t,7,8.5)'",
-    "drawbox=x=420:y=345:w=210:h=210:color=0x60a5fa@0.24:t=fill:enable='gte(t,8.5)'",
-  ].join(",");
+function clamp(value, min = 0, max = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(Math.max(number, min), max);
 }
 
-function buildCartesianFilter() {
-  return [
-    "drawbox=x=64:y=40:w=1152:h=640:color=0x172033:t=3",
-    "drawbox=x=160:y=360:w=960:h=4:color=0x94a3b8@0.45:t=fill",
-    "drawbox=x=640:y=100:w=4:h=520:color=0x94a3b8@0.45:t=fill",
-    "drawbox=x=320:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
-    "drawbox=x=480:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
-    "drawbox=x=800:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
-    "drawbox=x=960:y=100:w=2:h=520:color=0x334155@0.65:t=fill",
-    "drawbox=x=160:y=200:w=960:h=2:color=0x334155@0.65:t=fill",
-    "drawbox=x=160:y=280:w=960:h=2:color=0x334155@0.65:t=fill",
-    "drawbox=x=160:y=440:w=960:h=2:color=0x334155@0.65:t=fill",
-    "drawbox=x=160:y=520:w=960:h=2:color=0x334155@0.65:t=fill",
-    "drawbox=x=637:y=357:w=10:h=10:color=0xf8fafc:t=fill:enable='gte(t,2)'",
-    "drawbox=x=640:y=360:w=240:h=5:color=0x38bdf8:t=fill:enable='gte(t,4)'",
-    "drawbox=x=875:y=200:w=5:h=165:color=0x22c55e:t=fill:enable='gte(t,5.5)'",
-    "drawbox=x=864:y=190:w=28:h=28:color=0xfbbf24:t=fill:enable='gte(t,7)'",
-    "drawbox=x=858:y=184:w=40:h=40:color=0xfbbf24@0.22:t=fill:enable='gte(t,8)'",
-  ].join(",");
+function pxX(value) {
+  return Math.round(safe.left + clamp(value) * (safe.right - safe.left));
 }
 
-function buildFilter(template) {
-  if (template.visualKind === "coordinate-plane") {
-    return buildCartesianFilter();
+function pxY(value) {
+  return Math.round(safe.top + clamp(value) * (safe.bottom - safe.top));
+}
+
+function pxW(value) {
+  return Math.max(4, Math.round(clamp(value, 0.01, 1) * (safe.right - safe.left)));
+}
+
+function pxH(value) {
+  return Math.max(4, Math.round(clamp(value, 0.01, 1) * (safe.bottom - safe.top)));
+}
+
+function styleColor(style = {}, fallback = "accent") {
+  const key = String(style.stroke || style.fill || fallback).toLowerCase();
+  return colorMap[key] ?? colorMap[fallback] ?? colorMap.accent;
+}
+
+function fillColor(style = {}, fallback = "highlight") {
+  const key = String(style.fill || style.stroke || fallback).toLowerCase();
+  const alpha = clamp(style.opacity ?? 0.24, 0.08, 0.7);
+  return `${colorMap[key] ?? colorMap[fallback] ?? colorMap.highlight}@${alpha}`;
+}
+
+function enableBetween(start, end) {
+  return `enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`;
+}
+
+function sanitizeText(value) {
+  return String(value || "")
+    .replace(/\\/g, "")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "")
+    .slice(0, 60);
+}
+
+function drawRect(object, enable) {
+  const params = object.params ?? {};
+  const x = pxX(params.x ?? 0.25);
+  const y = pxY(params.y ?? 0.35);
+  const w = pxW(params.width ?? 0.18);
+  const h = pxH(params.height ?? 0.22);
+  const stroke = styleColor(object.style, "cyan");
+  const fill = fillColor(object.style, "highlight");
+  return [
+    `drawbox=x=${x}:y=${y}:w=${w}:h=${h}:color=${fill}:t=fill:${enable}`,
+    `drawbox=x=${x}:y=${y}:w=${w}:h=${h}:color=${stroke}:t=4:${enable}`,
+  ];
+}
+
+function drawAxis(object, enable) {
+  const params = object.params ?? {};
+  const orientation = String(params.orientation || "").toLowerCase();
+  const stroke = styleColor(object.style, "muted");
+  if (orientation === "vertical") {
+    const x = pxX(params.x ?? 0.5);
+    return [`drawbox=x=${x}:y=${safe.top}:w=3:h=${safe.bottom - safe.top}:color=${stroke}@0.75:t=fill:${enable}`];
+  }
+  const y = pxY(params.y ?? 0.72);
+  return [`drawbox=x=${safe.left}:y=${y}:w=${safe.right - safe.left}:h=3:color=${stroke}@0.75:t=fill:${enable}`];
+}
+
+function drawDot(object, enable) {
+  const params = object.params ?? {};
+  const x = pxX(params.x ?? 0.5) - 8;
+  const y = pxY(params.y ?? 0.5) - 8;
+  const color = styleColor(object.style, "yellow");
+  return [
+    `drawbox=x=${x - 8}:y=${y - 8}:w=32:h=32:color=${color}@0.18:t=fill:${enable}`,
+    `drawbox=x=${x}:y=${y}:w=16:h=16:color=${color}:t=fill:${enable}`,
+  ];
+}
+
+function interpolatePoints(points, count = 14) {
+  if (!Array.isArray(points) || points.length === 0) return [];
+  if (points.length === 1) return points;
+
+  const output = [];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    for (let step = 0; step < count; step += 1) {
+      const t = step / count;
+      output.push({
+        x: Number(start.x) + (Number(end.x) - Number(start.x)) * t,
+        y: Number(start.y) + (Number(end.y) - Number(start.y)) * t,
+      });
+    }
+  }
+  output.push(points[points.length - 1]);
+  return output;
+}
+
+function drawPointSeries(points, color, enable, size = 7) {
+  return interpolatePoints(points)
+    .slice(0, 90)
+    .map((point) => {
+      const x = pxX(point.x) - Math.floor(size / 2);
+      const y = pxY(point.y) - Math.floor(size / 2);
+      return `drawbox=x=${x}:y=${y}:w=${size}:h=${size}:color=${color}:t=fill:${enable}`;
+    });
+}
+
+function drawCurve(object, enable) {
+  const params = object.params ?? {};
+  const color = styleColor(object.style, "cyan");
+  const points = Array.isArray(params.points) && params.points.length > 1
+    ? params.points
+    : [
+        { x: 0.12, y: 0.68 },
+        { x: 0.32, y: 0.52 },
+        { x: 0.52, y: 0.32 },
+        { x: 0.76, y: 0.24 },
+      ];
+  return drawPointSeries(points, color, enable, 8);
+}
+
+function drawLine(object, enable) {
+  const params = object.params ?? {};
+  const color = styleColor(object.style, "yellow");
+  return drawPointSeries(
+    [
+      { x: params.x1 ?? 0.25, y: params.y1 ?? 0.7 },
+      { x: params.x2 ?? 0.75, y: params.y2 ?? 0.3 },
+    ],
+    color,
+    enable,
+    7,
+  );
+}
+
+function drawText(object, enable) {
+  const params = object.params ?? {};
+  const text = sanitizeText(params.text || object.id);
+  if (!text) return [];
+  const x = pxX(params.x ?? 0.08);
+  const y = pxY(params.y ?? 0.08);
+  const color = styleColor(object.style, "white");
+  const barCount = Math.min(Math.max(Math.ceil(text.length / 8), 2), 7);
+  const filters = [
+    `drawbox=x=${x}:y=${y}:w=${Math.min(340, 54 * barCount)}:h=54:color=0x080c18@0.68:t=fill:${enable}`,
+    `drawbox=x=${x}:y=${y}:w=${Math.min(340, 54 * barCount)}:h=54:color=${color}:t=3:${enable}`,
+  ];
+
+  for (let index = 0; index < barCount; index += 1) {
+    filters.push(
+      `drawbox=x=${x + 18 + index * 42}:y=${y + 22}:w=28:h=8:color=${color}:t=fill:${enable}`,
+    );
   }
 
-  return buildPythagoreanFilter();
+  return filters;
+}
+
+function drawObject(object, enable) {
+  switch (object.type) {
+    case "axis":
+      return drawAxis(object, enable);
+    case "curve":
+      return drawCurve(object, enable);
+    case "rectangle":
+    case "region":
+      return drawRect(object, enable);
+    case "dot":
+      return drawDot(object, enable);
+    case "line":
+    case "arrow":
+      return drawLine(object, enable);
+    case "label":
+    case "formula":
+      return drawText(object, enable);
+    default:
+      return drawRect(object, enable);
+  }
+}
+
+function sceneTimings(sceneDsl, durationSeconds) {
+  const scenes = Array.isArray(sceneDsl?.scenes) && sceneDsl.scenes.length > 0
+    ? sceneDsl.scenes
+    : [{ scene_id: "fallback", objects: [] }];
+  const sceneDuration = durationSeconds / scenes.length;
+  return scenes.map((scene, index) => ({
+    scene,
+    start: index * sceneDuration,
+    end: (index + 1) * sceneDuration,
+  }));
+}
+
+function buildSceneDslFilter(sceneDsl, durationSeconds) {
+  const filters = [
+    "drawbox=x=64:y=40:w=1152:h=640:color=0x172033:t=3",
+  ];
+
+  for (const { scene, start, end } of sceneTimings(sceneDsl, durationSeconds)) {
+    const enable = enableBetween(start, end);
+    for (const object of scene.objects ?? []) {
+      filters.push(...drawObject(object, enable));
+    }
+  }
+
+  return filters.join(",");
 }
 
 export function createVideoGenerator({
@@ -62,12 +254,12 @@ export function createVideoGenerator({
     throw new Error("outputDirectory is required to generate videos.");
   }
 
-  return async function generateVideo({ requestId, template }) {
+  return async function generateVideo({ requestId, template, requestContext, sceneDsl, visualPlan }) {
     await fs.mkdir(outputDirectory, { recursive: true });
 
     const fileName = `${sanitizeFileName(requestId)}.mp4`;
     const outputPath = path.join(outputDirectory, fileName);
-    const filter = buildFilter(template);
+    const filter = buildSceneDslFilter(sceneDsl, durationSeconds);
 
     await execFileAsync(ffmpegPath, [
       "-hide_banner",
@@ -77,7 +269,7 @@ export function createVideoGenerator({
       "-f",
       "lavfi",
       "-i",
-      `color=c=0x080c18:s=1280x720:r=30:d=${durationSeconds}`,
+      `color=c=0x080c18:s=${width}x${height}:r=30:d=${durationSeconds}`,
       "-vf",
       filter,
       "-c:v",
@@ -88,12 +280,14 @@ export function createVideoGenerator({
     ]);
 
     return {
-      templateId: template.id,
+      conceptId: requestContext?.id ?? template?.id ?? requestId,
+      renderer: "scene-dsl-ffmpeg",
+      patternId: visualPlan?.selected_pattern_id,
       url: `/generated/${fileName}`,
       mimeType: "video/mp4",
       durationSeconds,
       generated: true,
-      style: template.videoStyle,
+      style: sceneDsl?.canvas?.style || "scene-dsl visual explainer",
     };
   };
 }
