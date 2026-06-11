@@ -7,7 +7,39 @@ export function sampleFrameMarkers(timeline) {
   }));
 }
 
-export function runVisualQa({ video, timeline, componentGraph, preflight }) {
+function textValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isMathConcept(conceptUnderstanding, componentGraph) {
+  const domain = textValue(conceptUnderstanding?.domain).toLowerCase();
+  if (domain.includes("math") || domain.includes("optimization")) return true;
+  return (componentGraph?.nodes ?? []).some((node) => {
+    const component = textValue(node.component);
+    return [
+      "FormulaReveal",
+      "GraphPlot",
+      "GraphLocalZoom",
+      "TangentReveal",
+      "SlopeTriangle",
+      "RiemannRectangles",
+      "RightTriangleLabeling",
+      "AreaRearrangementProof",
+    ].includes(component);
+  });
+}
+
+function hasConcreteFormula(componentGraph) {
+  return (componentGraph?.nodes ?? []).some((node) => {
+    if (!["FormulaReveal", "VisualRecap", "AreaRearrangementProof"].includes(node.component)) {
+      return false;
+    }
+    const formula = textValue(node.props?.formula || node.props?.final_equation);
+    return /[=+\-*/^∇∫Σπ√ηθ_a-zA-Z0-9]/.test(formula) && formula.length >= 5;
+  });
+}
+
+export function runVisualQa({ video, timeline, componentGraph, preflight, conceptUnderstanding }) {
   const issues = [];
 
   if (!video?.url) {
@@ -46,6 +78,15 @@ export function runVisualQa({ video, timeline, componentGraph, preflight }) {
     });
   }
 
+  if (isMathConcept(conceptUnderstanding, componentGraph) && !hasConcreteFormula(componentGraph)) {
+    issues.push({
+      severity: "high",
+      type: "missing_math_formula",
+      description: "Math explainers must include a concrete symbolic formula after the visual intuition.",
+      suggested_fix: "Add a FormulaReveal or VisualRecap node with an explicit formula prop.",
+    });
+  }
+
   const sampledFrames = sampleFrameMarkers(timeline);
   const highSeverityCount = issues.filter((issue) => issue.severity === "high").length;
   const mediumSeverityCount = issues.filter((issue) => issue.severity === "medium").length;
@@ -62,6 +103,7 @@ export function runVisualQa({ video, timeline, componentGraph, preflight }) {
       "duration_within_local_cap",
       "component_graph_non_empty",
       "timeline_resolves_nodes",
+      "math_formula_present_when_needed",
       "frame_samples_declared",
     ],
   };
@@ -87,6 +129,12 @@ export function createRepairPlan({ qaReport, timeline }) {
     changes.push({
       repair_type: "component_fallback",
       change: "Keep fallback nodes as GenericDiagram so the final render remains intentional.",
+    });
+  }
+  if (qaReport.issues.some((issue) => issue.type === "missing_math_formula")) {
+    changes.push({
+      repair_type: "component_props",
+      change: "Regenerate the math shot with an explicit formula prop before final render.",
     });
   }
 

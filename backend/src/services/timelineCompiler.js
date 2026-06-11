@@ -17,6 +17,11 @@ function rendererForComponent(componentId) {
   return spec.renderer[0] || "ffmpeg_component_adapter";
 }
 
+function hasProp(props, key) {
+  const value = props?.[key];
+  return value !== undefined && value !== null && String(value).trim().length > 0;
+}
+
 export function compileTimeline({ storyboard, componentGraph, durationSeconds, designTokens }) {
   const shots = Array.isArray(storyboard?.shots) && storyboard.shots.length > 0
     ? storyboard.shots
@@ -47,7 +52,7 @@ export function compileTimeline({ storyboard, componentGraph, durationSeconds, d
       end_sec: Number(end.toFixed(2)),
       duration_sec: Number(Math.max(end - cursor, 0.5).toFixed(2)),
       layer: "main",
-      component: node?.component || shot.main_component || "GenericDiagram",
+      component: shot.main_component || node?.component || "GenericDiagram",
       transition_in: index === 0 ? "fade_up" : "soft_cut",
       transition_out: isLast ? "hold" : "soft_cut",
       camera: {
@@ -133,6 +138,19 @@ export function runStaticPreflight({ componentGraph, timeline, designTokens }) {
         description: `${node.requested_component} is not in the local component registry, so GenericDiagram will render it.`,
       });
     }
+
+    const spec = getMotionComponent(node.component);
+    for (const requiredProp of spec.schema.required_props) {
+      if (!hasProp(node.props, requiredProp)) {
+        issues.push({
+          severity: "high",
+          shot_id: node.shot_id,
+          type: "missing_required_component_prop",
+          description: `${node.component} is missing required prop "${requiredProp}".`,
+          suggested_fix: `Regenerate or repair the component graph so ${node.component}.${requiredProp} is explicit.`,
+        });
+      }
+    }
   }
 
   if (timeline.shots.length > 8) {
@@ -148,6 +166,7 @@ export function runStaticPreflight({ componentGraph, timeline, designTokens }) {
     issues,
     checks: [
       "component_nodes_resolve",
+      "component_required_props_present",
       "timeline_duration_within_local_bounds",
       "shot_count_local_mvp",
       "safe_margin_policy_present",

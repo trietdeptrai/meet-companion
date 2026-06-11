@@ -333,6 +333,7 @@ function normalizeStoryboardShotlist(plannerOutput, config) {
       camera: String(shot?.camera || "static_center"),
       text_policy: String(shot?.text_policy || "minimal_label"),
       narration: String(shot?.narration || ""),
+      formula: String(shot?.formula || ""),
     })),
   };
 }
@@ -726,6 +727,7 @@ export function createVideoJobPipeline({
           timeline,
           componentGraph,
           preflight,
+          conceptUnderstanding,
         });
         job.qa_reports.push(value);
         if (store.saveQaReport) {
@@ -743,7 +745,7 @@ export function createVideoJobPipeline({
             created_at: now(),
           });
         }
-        if (!value.passed && config.quality_mode === "fast") {
+        if (!value.passed) {
           throw new ApiError(502, "VISUAL_QA_FAILED", "Preview render failed visual QA.");
         }
         return {

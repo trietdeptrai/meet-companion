@@ -99,6 +99,7 @@ describe("OpenAI tutor adapter", () => {
               camera: "slow_push_in",
               text_policy: "title_only",
               narration: "Imagine error as a valley.",
+              formula: "",
             },
             {
               shot_id: "sh02",
@@ -108,6 +109,7 @@ describe("OpenAI tutor adapter", () => {
               camera: "static_center",
               text_policy: "minimal_label",
               narration: "We start high on the curve.",
+              formula: "",
             },
             {
               shot_id: "sh03",
@@ -117,6 +119,7 @@ describe("OpenAI tutor adapter", () => {
               camera: "center_on_point",
               text_policy: "no_text",
               narration: "Move opposite the gradient.",
+              formula: "",
             },
             {
               shot_id: "sh04",
@@ -126,6 +129,7 @@ describe("OpenAI tutor adapter", () => {
               camera: "wide_summary",
               text_policy: "final_formula",
               narration: "That is the update rule.",
+              formula: "x_next = x - eta * grad f(x)",
             },
           ],
         },
@@ -185,9 +189,12 @@ describe("OpenAI tutor adapter", () => {
     expect(request.text.format.schema.required).toContain("componentGraph");
     expect(request.text.format.schema.required).not.toContain("sceneDsl");
     expect(request.text.format.schema.properties.componentGraph.properties.nodes.items.properties.component.enum).toContain("GraphPlot");
+    expect(request.text.format.schema.properties.storyboard.properties.shots.items.required).toContain("formula");
     expect(request.instructions).toContain("Every user-visible text field");
+    expect(request.instructions).toContain("concrete symbolic formula");
     expect(request.input).toContain("Video language: en");
     expect(request.input).toContain("all visible tutor/video text must be English");
+    expect(request.input).toContain("non-empty formula field");
     expect(request.input).toContain("Do not generate low-level pixel motion");
     expect(lesson.followUpQuestion).toContain("learning rate");
     expect(lesson.creativeTreatments.treatments).toHaveLength(2);

@@ -161,6 +161,7 @@ function createGradientDescentPlannerOutput() {
           camera: "slow_push_in",
           text_policy: "title_only",
           narration: "Imagine the error as a valley.",
+          formula: "",
         },
         {
           shot_id: "sh02_landscape",
@@ -170,6 +171,7 @@ function createGradientDescentPlannerOutput() {
           camera: "static_center",
           text_policy: "minimal_label",
           narration: "We start high on the loss curve.",
+          formula: "",
         },
         {
           shot_id: "sh03_steps",
@@ -179,6 +181,7 @@ function createGradientDescentPlannerOutput() {
           camera: "center_on_point",
           text_policy: "no_text",
           narration: "Each step moves opposite the uphill gradient.",
+          formula: "",
         },
         {
           shot_id: "sh04_formula",
@@ -188,6 +191,7 @@ function createGradientDescentPlannerOutput() {
           camera: "wide_summary",
           text_policy: "final_formula",
           narration: "That repeated rule is the update step.",
+          formula: "theta <- theta - alpha * grad L(theta)",
         },
       ],
     },
@@ -372,6 +376,9 @@ describe("Video job API", () => {
     );
     expect(generateVideo.mock.calls[1][0].timeline.duration_sec).toBe(24);
     expect(generateVideo.mock.calls[1][0].timeline.shots).toHaveLength(4);
+    expect(generateVideo.mock.calls[1][0].timeline.shots.at(-1)).toMatchObject({
+      component: "FormulaReveal",
+    });
     expect(completedJob.video.url).toMatch(/-final\.mp4$/);
     expect(completedJob.qa_reports[0]).toMatchObject({
       qa_type: "visual",

@@ -60,6 +60,32 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
+function formatMathText(value) {
+  return String(value ?? "")
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1 / $2")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\times/g, "x")
+    .replace(/\\eta/g, "eta")
+    .replace(/\\theta/g, "theta")
+    .replace(/\\alpha/g, "alpha")
+    .replace(/\\beta/g, "beta")
+    .replace(/\\gamma/g, "gamma")
+    .replace(/\\lambda/g, "lambda")
+    .replace(/\\Delta/g, "Delta")
+    .replace(/\\nabla/g, "grad")
+    .replace(/\\int/g, "int")
+    .replace(/\\sum/g, "sum")
+    .replace(/\\pi/g, "pi")
+    .replace(/\\sqrt/g, "√")
+    .replace(/<-/g, "←")
+    .replace(/->/g, "→")
+    .replace(/_\{([^{}]+)\}/g, "($1)")
+    .replace(/\^\{([^{}]+)\}/g, "^$1")
+    .replace(/_([A-Za-z0-9+\-=()])/g, "($1)")
+    .replace(/\^([A-Za-z0-9+\-=()])/g, "^$1")
+    .replace(/\b(eta|alpha|lambda)\s+grad\b/g, "$1 * grad");
+}
+
 function prop(node, key, fallback = "") {
   return String(node?.props?.[key] ?? fallback ?? "");
 }
@@ -285,7 +311,7 @@ function movingPoint(node, shot, progress) {
 }
 
 function formulaReveal(node, shot, progress) {
-  const formula = prop(node, "formula", prop(node, "final_equation", "idea"));
+  const formula = formatMathText(prop(node, "formula", prop(node, "final_equation", "idea")));
   const caption = prop(node, "caption", node.narration || shot.narration || "");
   const reveal = easeOutCubic(progress);
   return `
@@ -337,7 +363,7 @@ function riemannRectangles(node, shot, progress) {
 function visualRecap(node, shot, progress) {
   const reveal = easeOutCubic(progress);
   const message = prop(node, "message", prop(node, "caption", shot.visual_goal || node.narration));
-  const formula = prop(node, "formula", prop(node, "takeaway", "small stable steps"));
+  const formula = formatMathText(prop(node, "formula", prop(node, "takeaway", "small stable steps")));
   return `
     <g opacity="${reveal.toFixed(3)}">
       <rect x="196" y="156" width="888" height="390" rx="34" fill="${palette.panel}" stroke="#293A61" opacity="0.9" filter="url(#deepShadow)"/>

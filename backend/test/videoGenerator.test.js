@@ -87,7 +87,7 @@ function sampleComponentGraph() {
         shot_id: "sh03",
         component: "FormulaReveal",
         props: {
-          formula: "theta <- theta - alpha grad L(theta)",
+          formula: "x_{t+1} = x_t - \\eta \\nabla f(x_t)",
           caption: "repeat small downhill steps",
         },
         style: { theme: "clean_dark_explainer", highlight_color_token: "primary" },
@@ -110,6 +110,20 @@ describe("video generator", () => {
     expect(svg).toContain("<path");
     expect(svg).toContain("Gradient descent");
     expect(svg).not.toContain("drawbox");
+  });
+
+  test("formats common LaTeX-style math tokens into renderer-safe formula text", () => {
+    const svg = renderTimelineFrameSvg({
+      timeline: sampleTimeline(),
+      componentGraph: sampleComponentGraph(),
+      second: 0.85,
+    });
+
+    expect(svg).toContain("eta * grad");
+    expect(svg).toContain("x(t+1)");
+    expect(svg).not.toContain("\\eta");
+    expect(svg).not.toContain("ₜ");
+    expect(svg).not.toContain("x_{t+1}");
   });
 
   test("renders component graph videos with the SVG craft renderer instead of FFmpeg drawbox primitives", async () => {

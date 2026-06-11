@@ -99,54 +99,179 @@ function propsToObject(props) {
   );
 }
 
+function firstText(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+function setDefaultProp(props, key, value) {
+  if (firstText(props[key])) return;
+  const normalized = firstText(value);
+  if (normalized) props[key] = normalized;
+}
+
+function completeComponentProps(componentId, props, shot, requestContext) {
+  const completed = { ...props };
+  const shotFormula = firstText(shot?.formula);
+  const shotCaption = firstText(shot?.narration, shot?.visual_goal);
+
+  switch (componentId) {
+    case "HookTitle":
+      setDefaultProp(completed, "title", firstText(requestContext.title, shot?.visual_goal, "Visual explanation"));
+      setDefaultProp(completed, "subtitle", shotCaption);
+      break;
+    case "FormulaReveal":
+      setDefaultProp(completed, "formula", firstText(completed.formula, completed.final_equation, shotFormula));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "VisualRecap":
+      setDefaultProp(completed, "message", firstText(completed.message, shotCaption, "Key takeaway"));
+      setDefaultProp(completed, "formula", firstText(completed.formula, completed.final_equation, shotFormula));
+      break;
+    case "GraphPlot":
+      setDefaultProp(completed, "function", firstText(completed.function, completed.shape, completed.curve, shot?.visual_goal, "conceptual curve"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "GraphLocalZoom":
+      setDefaultProp(completed, "function", firstText(completed.function, completed.shape, completed.curve, shot?.visual_goal, "local curve"));
+      setDefaultProp(completed, "x_focus", firstText(completed.x_focus, completed.zoom_target, completed.focus, "current point"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "TangentReveal":
+      setDefaultProp(completed, "function", firstText(completed.function, completed.shape, completed.curve, shot?.visual_goal, "local curve"));
+      setDefaultProp(completed, "caption", shotCaption);
+      setDefaultProp(completed, "x_focus", firstText(completed.x_focus, completed.focus, "current point"));
+      break;
+    case "SlopeTriangle":
+      setDefaultProp(completed, "slope", firstText(completed.slope, completed.label, "local slope"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "MovingPoint":
+      setDefaultProp(completed, "path", firstText(completed.path, completed.motion, shot?.visual_goal, "motion path"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "RiemannRectangles":
+      setDefaultProp(completed, "function", firstText(completed.function, completed.curve, shot?.visual_goal, "area curve"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "RightTriangleLabeling":
+      setDefaultProp(completed, "labels", firstText(completed.labels, "a, b, c"));
+      break;
+    case "AreaRearrangementProof":
+      setDefaultProp(completed, "final_equation", firstText(completed.final_equation, completed.formula, shotFormula));
+      break;
+    case "GenericDiagram":
+      setDefaultProp(completed, "idea", firstText(completed.idea, shot?.visual_goal, "Explain one visual idea."));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    default:
+      break;
+  }
+
+  return completed;
+}
+
 function stringArray(value) {
   return Array.isArray(value) ? value.map((entry) => String(entry)).filter(Boolean) : [];
 }
 
 export function normalizeComponentGraph(rawGraph, storyboard, requestContext) {
   const shots = Array.isArray(storyboard?.shots) ? storyboard.shots : [];
-  const sourceNodes = Array.isArray(rawGraph?.nodes) && rawGraph.nodes.length > 0
-    ? rawGraph.nodes
-    : shots.map((shot, index) => ({
-        id: `n${index + 1}`,
-        shot_id: shot.shot_id,
-        component: shot.main_component || "GenericDiagram",
-        props: {
-          idea: shot.visual_goal,
-          caption: shot.narration || shot.visual_goal,
-        },
-        style: {
-          theme: requestContext.style,
-          highlight_color_token: "primary",
-        },
-        narration: shot.narration || "",
-      }));
+  const sourceNodes = Array.isArray(rawGraph?.nodes) ? rawGraph.nodes : [];
+  const usedSourceIndexes = new Set();
+  const usedNodeIds = new Set();
 
-  const nodes = sourceNodes.map((node, index) => {
-    const requestedComponent = String(node?.component || "GenericDiagram");
-    const knownComponent = registryById.has(requestedComponent);
-    const componentId = knownComponent ? requestedComponent : "GenericDiagram";
+  function uniqueNodeId(candidate) {
+    const base = firstText(candidate, `n${usedNodeIds.size + 1}`).replace(/\s+/g, "_");
+    let next = base;
+    let suffix = 2;
+    while (usedNodeIds.has(next)) {
+      next = `${base}_${suffix}`;
+      suffix += 1;
+    }
+    usedNodeIds.add(next);
+    return next;
+  }
+
+  function chooseComponent(node, shot) {
+    const requestedComponent = String(node?.component || shot?.main_component || "GenericDiagram");
+    const storyboardComponent = String(shot?.main_component || "");
+    const shouldHonorStoryboard =
+      storyboardComponent &&
+      storyboardComponent !== "GenericDiagram" &&
+      registryById.has(storyboardComponent);
+    const selectedComponent = shouldHonorStoryboard ? storyboardComponent : requestedComponent;
+    const knownComponent = registryById.has(selectedComponent);
+    return {
+      requestedComponent,
+      componentId: knownComponent ? selectedComponent : "GenericDiagram",
+      fallbackUsed: !knownComponent,
+    };
+  }
+
+  function normalizeNode(node, index, shot, generatedId) {
+    const { requestedComponent, componentId, fallbackUsed } = chooseComponent(node, shot);
     const spec = getMotionComponent(componentId);
-    const shot = shots.find((entry) => entry.shot_id === node?.shot_id) ?? shots[index];
 
     return {
-      id: String(node?.id || `n${index + 1}`),
+      id: uniqueNodeId(node?.id || generatedId || `n${index + 1}`),
       shot_id: String(node?.shot_id || shot?.shot_id || `sh${index + 1}`),
       component: componentId,
       requested_component: requestedComponent,
-      fallback_used: !knownComponent,
+      component_overridden: requestedComponent !== componentId,
+      fallback_used: fallbackUsed,
       quality_tier: spec.quality_tier,
       renderer_candidates: spec.renderer,
-      props: {
-        ...propsToObject(node?.props),
-      },
+      props: completeComponentProps(componentId, propsToObject(node?.props), shot, requestContext),
       style: {
         theme: String(node?.style?.theme || requestContext.style || "clean_dark_explainer"),
         highlight_color_token: String(node?.style?.highlight_color_token || "primary"),
       },
       narration: String(node?.narration || shot?.narration || ""),
     };
+  }
+
+  const primaryNodes = shots.map((shot, index) => {
+    const exactIndex = sourceNodes.findIndex((node, sourceIndex) => (
+      !usedSourceIndexes.has(sourceIndex) &&
+      node?.shot_id === shot.shot_id &&
+      node?.component === shot.main_component
+    ));
+    const sameShotIndex = exactIndex >= 0 ? exactIndex : sourceNodes.findIndex((node, sourceIndex) => (
+      !usedSourceIndexes.has(sourceIndex) &&
+      node?.shot_id === shot.shot_id
+    ));
+    const indexFallback = sameShotIndex >= 0 ? sameShotIndex : sourceNodes.findIndex((node, sourceIndex) => (
+      !usedSourceIndexes.has(sourceIndex) &&
+      !node?.shot_id &&
+      sourceIndex === index
+    ));
+    const sourceIndex = indexFallback;
+    const sourceNode = sourceIndex >= 0 ? sourceNodes[sourceIndex] : {
+      id: `${shot.shot_id}_primary`,
+      shot_id: shot.shot_id,
+      component: shot.main_component || "GenericDiagram",
+      props: {},
+    };
+
+    if (sourceIndex >= 0) usedSourceIndexes.add(sourceIndex);
+    return normalizeNode(sourceNode, index, shot, `${shot.shot_id}_primary`);
   });
+
+  const extraNodes = sourceNodes
+    .map((node, sourceIndex) => ({ node, sourceIndex }))
+    .filter(({ sourceIndex }) => !usedSourceIndexes.has(sourceIndex))
+    .map(({ node }, index) => {
+      const shot = shots.find((entry) => entry.shot_id === node?.shot_id) ?? shots[index];
+      return normalizeNode(node, primaryNodes.length + index, shot);
+    });
+
+  const nodes = shots.length > 0
+    ? [...primaryNodes, ...extraNodes]
+    : sourceNodes.map((node, index) => normalizeNode(node, index, undefined));
 
   return {
     graph_id: String(rawGraph?.graph_id || `${requestContext.id}_component_graph`),
