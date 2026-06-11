@@ -89,7 +89,11 @@ returns:
 The backend then validates the motion component graph, compiles a 10-second
 timeline, allocates renderers, runs preflight, renders a preview, runs visual
 QA, records a repair/polish decision, renders the final MP4, and saves editable
-project artifacts locally.
+project artifacts locally. Component graph videos use the local SVG craft
+renderer (`svg-component-ffmpeg`): Node renders polished SVG frames with real
+typography, vector paths, glow filters, and layout rules, then FFmpeg encodes
+the final MP4. FFmpeg primitive drawbox rendering is kept only as a legacy
+scene-DSL fallback.
 
 ```bash
 curl http://localhost:8787/api/v2/video-jobs/<job_id>

@@ -337,6 +337,8 @@ function buildInput({ prompt, language, requestContext, qualityMode, stylePreset
     "Return a complete PRD v2 director plan for a 10-second local explainer video.",
     "Do not generate low-level pixel motion, renderer code, Manim code, FFmpeg filters, or sceneDsl.",
     "Use componentGraph nodes that reference available motion component IDs.",
+    "For math concepts, prefer precise native components such as GraphPlot, GraphLocalZoom, TangentReveal, SlopeTriangle, RiemannRectangles, MovingPoint, FormulaReveal, and VisualRecap.",
+    "Do not choose GenericDiagram when a native math or science component can carry the shot. GenericDiagram is a last-resort fallback for unsupported visual structures.",
     "Component props must be key/value string pairs because the backend validates and compiles them.",
     "Available motion components:",
     components,

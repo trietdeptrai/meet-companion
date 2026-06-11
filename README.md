@@ -13,7 +13,10 @@ cp backend/.env.example backend/.env
 Add `OPENAI_API_KEY` to `backend/.env` before using the async job API. The PRD
 v2 pipeline requires OpenAI planning; without it, `/api/v2/video-jobs` fails
 during planning instead of rendering a fake fallback video. The backend uses
-`ffmpeg` to create a fresh 10-second MP4 after planning succeeds.
+`ffmpeg` to create a fresh 10-second MP4 after planning succeeds. Component
+graph videos render through the local SVG craft renderer first, so output uses
+real text, vector curves, glow, and component-specific layouts instead of the
+older primitive drawbox-only look.
 For local simplicity, backend job/project state is stored in SQLite at
 `backend/data/visualexplain.sqlite`, generated videos go to
 `backend/public/generated/`, intermediate JSON artifacts go to

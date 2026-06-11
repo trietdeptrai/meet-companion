@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { compileSceneDslFromTimeline } from "./componentSceneCompiler.js";
+import { renderSvgFrames } from "./svgComponentRenderer.js";
 
 const execFileAsync = promisify(execFile);
 const defaultDurationSeconds = 10;
@@ -266,19 +267,77 @@ export function createVideoGenerator({
     creativeBrief,
     renderPass = "final",
   }) {
-    await fs.mkdir(outputDirectory, { recursive: true });
-
     const fileName = `${sanitizeFileName(requestId)}.mp4`;
     const outputPath = path.join(outputDirectory, fileName);
+    const renderDuration = Math.min(
+      Math.max(Number(timeline?.duration_sec) || durationSeconds, 1),
+      10,
+    );
+    await fs.mkdir(outputDirectory, { recursive: true });
+
+    if (componentGraph && timeline && !sceneDsl) {
+      const outputFps = Math.min(Math.max(Number(timeline.fps) || 30, 24), 30);
+      const sourceFps = Math.min(
+        Math.max(Number(process.env.RENDER_FRAME_FPS) || 12, 8),
+        outputFps,
+      );
+      const frameDirectory = path.join(outputDirectory, ".frames", sanitizeFileName(requestId));
+      const frameRender = await renderSvgFrames({
+        frameDirectory,
+        timeline,
+        componentGraph,
+        fps: sourceFps,
+      });
+
+      try {
+        await execFileAsync(ffmpegPath, [
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-y",
+          "-framerate",
+          String(frameRender.fps),
+          "-i",
+          path.join(frameDirectory, "frame-%04d.png"),
+          "-t",
+          String(renderDuration),
+          "-r",
+          String(outputFps),
+          "-c:v",
+          "libx264",
+          "-pix_fmt",
+          "yuv420p",
+          "-movflags",
+          "+faststart",
+          outputPath,
+        ]);
+      } finally {
+        await fs.rm(frameDirectory, { recursive: true, force: true });
+      }
+
+      return {
+        conceptId: requestContext?.id ?? template?.id ?? requestId,
+        renderer: "svg-component-ffmpeg",
+        frameRenderer: "resvg-svg-components",
+        renderPass,
+        url: `/generated/${fileName}`,
+        mimeType: "video/mp4",
+        durationSeconds: renderDuration,
+        generated: true,
+        style: creativeBrief?.visual_style || "clean_dark_explainer svg component video",
+        sceneCount: timeline?.shots?.length ?? 0,
+        componentCount: componentGraph?.nodes?.length ?? 0,
+        frameCount: frameRender.frameCount,
+        sourceFps: frameRender.fps,
+        fps: outputFps,
+      };
+    }
+
     const compiledSceneDsl = sceneDsl ?? compileSceneDslFromTimeline({
       timeline,
       componentGraph,
       creativeBrief,
     });
-    const renderDuration = Math.min(
-      Math.max(Number(timeline?.duration_sec) || durationSeconds, 5),
-      10,
-    );
     const filter = buildSceneDslFilter(compiledSceneDsl, renderDuration);
 
     await execFileAsync(ffmpegPath, [
