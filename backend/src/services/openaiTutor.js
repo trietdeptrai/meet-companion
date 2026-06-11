@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { buildConceptGrammarPromptBlock } from "./conceptGrammars.js";
 import { listMotionComponents } from "./motionComponents.js";
 
 const componentIds = listMotionComponents().map((entry) => entry.component_id);
@@ -336,6 +337,7 @@ function buildInput({ prompt, language, requestContext, qualityMode, stylePreset
   const components = listMotionComponents()
     .map((entry) => `${entry.component_id}(${entry.supported_domains.join("/")})`)
     .join(", ");
+  const grammarBlock = buildConceptGrammarPromptBlock(context.visual_grammar);
 
   return [
     `Learner request: ${prompt}`,
@@ -356,6 +358,7 @@ function buildInput({ prompt, language, requestContext, qualityMode, stylePreset
     "Component props must be key/value string pairs because the backend validates and compiles them.",
     "Available motion components:",
     components,
+    grammarBlock,
     "If a concept is new, pick the closest component vocabulary by visual affordance, then use GenericDiagram only as a dignified fallback.",
     "The explanation should feel visual and polished, not like a list of definitions.",
   ].join("\n");

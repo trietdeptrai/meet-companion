@@ -244,4 +244,94 @@ describe("timeline compiler and math quality gates", () => {
 
     expect(runStaticPreflight({ componentGraph, timeline, designTokens }).pass).toBe(true);
   });
+
+  test("repairs prepared visual grammar component props so static preflight can pass", () => {
+    const storyboard = {
+      title: "Five prepared visual components",
+      duration_sec: 30,
+      shots: [
+        {
+          shot_id: "area",
+          duration_sec: 5,
+          visual_goal: "Show smooth area under a curve after rectangles become fine.",
+          main_component: "AreaFillReveal",
+          camera: "static_center",
+          text_policy: "minimal_caption",
+          narration: "The accumulated area becomes the integral.",
+          formula: "\\int_a^b f(x) dx",
+        },
+        {
+          shot_id: "basis",
+          duration_sec: 5,
+          visual_goal: "Reveal transformed basis vectors.",
+          main_component: "BasisVectorReveal",
+          camera: "static_center",
+          text_policy: "minimal_caption",
+          narration: "A matrix tells us where the basis vectors land.",
+          formula: "",
+        },
+        {
+          shot_id: "vector",
+          duration_sec: 5,
+          visual_goal: "Move one vector through the same matrix rule.",
+          main_component: "VectorTransform",
+          camera: "static_center",
+          text_policy: "minimal_caption",
+          narration: "Every vector follows from the transformed basis.",
+          formula: "A\\mathbf{x}",
+        },
+        {
+          shot_id: "landscape",
+          duration_sec: 5,
+          visual_goal: "Show loss as a landscape.",
+          main_component: "LossLandscape2D",
+          camera: "wide",
+          text_policy: "minimal_caption",
+          narration: "Loss is height on a surface.",
+          formula: "L(\\theta)",
+        },
+        {
+          shot_id: "descent",
+          duration_sec: 5,
+          visual_goal: "Animate the point stepping downhill.",
+          main_component: "PointDescent",
+          camera: "follow_point",
+          text_policy: "minimal_caption",
+          narration: "Each update steps downhill.",
+          formula: "",
+        },
+        {
+          shot_id: "steps",
+          duration_sec: 5,
+          visual_goal: "Show the optimization rule as repeatable steps.",
+          main_component: "StepByStepOptimization",
+          camera: "wide_summary",
+          text_policy: "formula",
+          narration: "Repeat the update until loss is low.",
+          formula: "\\theta_{t+1}=\\theta_t-\\eta\\nabla L(\\theta_t)",
+        },
+      ],
+    };
+    const componentGraph = normalizeComponentGraph(
+      { graph_id: "prepared-components", nodes: [], edges: [] },
+      storyboard,
+      { id: "prepared-components", title: "Prepared components", style: "clean_dark_explainer" },
+    );
+    const timeline = compileTimeline({
+      storyboard,
+      componentGraph,
+      durationSeconds: 30,
+      designTokens,
+    });
+
+    expect(componentGraph.nodes.map((node) => node.component)).toEqual([
+      "AreaFillReveal",
+      "BasisVectorReveal",
+      "VectorTransform",
+      "LossLandscape2D",
+      "PointDescent",
+      "StepByStepOptimization",
+    ]);
+    expect(runStaticPreflight({ componentGraph, timeline, designTokens }).pass).toBe(true);
+  });
 });

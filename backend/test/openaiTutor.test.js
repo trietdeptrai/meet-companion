@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { matchConceptGrammar } from "../src/services/conceptGrammars.js";
 import { createOpenAITutor } from "../src/services/openaiTutor.js";
 
 describe("OpenAI tutor adapter", () => {
@@ -174,6 +175,7 @@ describe("OpenAI tutor adapter", () => {
       requestContext: {
         id: "gradient-descent-valley",
         title: "Gradient descent",
+        visual_grammar: matchConceptGrammar("gradient descent"),
       },
       qualityMode: "best",
     });
@@ -196,6 +198,9 @@ describe("OpenAI tutor adapter", () => {
     expect(request.input).toContain("all visible tutor/video text must be English");
     expect(request.input).toContain("non-empty formula field");
     expect(request.input).toContain("Do not generate low-level pixel motion");
+    expect(request.input).toContain("Concept visual grammar: Gradient descent");
+    expect(request.input).toContain("LossLandscape2D");
+    expect(request.input).toContain("StepByStepOptimization");
     expect(lesson.followUpQuestion).toContain("learning rate");
     expect(lesson.creativeTreatments.treatments).toHaveLength(2);
     expect(lesson.treatmentRanking.selected_treatment_id).toBe("valley_walk");

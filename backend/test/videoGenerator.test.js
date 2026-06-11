@@ -126,6 +126,47 @@ describe("video generator", () => {
     expect(svg).not.toContain("x_{t+1}");
   });
 
+  test("formats integral limit notation without leaking raw LaTeX commands", () => {
+    const timeline = {
+      ...sampleTimeline(),
+      shots: [
+        {
+          shot_id: "integral_formula",
+          node_id: "integral_node",
+          start_sec: 0,
+          end_sec: 1,
+          duration_sec: 1,
+          component: "FormulaReveal",
+          visual_goal: "Reveal the integral formula.",
+          narration: "The limit of sums becomes the integral.",
+        },
+      ],
+    };
+    const componentGraph = {
+      nodes: [
+        {
+          id: "integral_node",
+          shot_id: "integral_formula",
+          component: "FormulaReveal",
+          props: {
+            formula: "\\lim_{n\\to\\infty} \\sum_{i=1}^{n} f(x_i)\\,\\Delta x \\;=\\; \\int_a^b f(x)\\,dx",
+            caption: "rectangles become exact area",
+          },
+        },
+      ],
+    };
+
+    const svg = renderTimelineFrameSvg({ timeline, componentGraph, second: 0.5 });
+
+    expect(svg).toContain("lim(n→∞)");
+    expect(svg).toContain("Σ(i=1 to n)");
+    expect(svg).toContain("f(x_i) Δ x");
+    expect(svg).toContain("∫[a,b]");
+    expect(svg).not.toContain("\\lim");
+    expect(svg).not.toContain("\\to");
+    expect(svg).not.toContain("\\;");
+  });
+
   test("renders native linear transformation components instead of generic fallback diagrams", () => {
     const timeline = {
       duration_sec: 2,
@@ -202,6 +243,53 @@ describe("video generator", () => {
     expect(compareSvg).not.toContain('data-component="GenericDiagram"');
   });
 
+  test("renders prepared concept grammar components with native SVG scenes", () => {
+    const timeline = {
+      duration_sec: 6,
+      fps: 30,
+      resolution: "1280x720",
+      theme_id: "clean_dark_explainer",
+      constraints: {
+        max_objects_per_shot: 8,
+        max_text_lines: 2,
+        safe_margin_px: 96,
+      },
+      shots: [
+        { shot_id: "area", node_id: "area_node", start_sec: 0, end_sec: 1, duration_sec: 1, component: "AreaFillReveal", visual_goal: "Fill area under the curve.", narration: "The area is the integral." },
+        { shot_id: "basis", node_id: "basis_node", start_sec: 1, end_sec: 2, duration_sec: 1, component: "BasisVectorReveal", visual_goal: "Show basis vectors landing.", narration: "A matrix moves the basis." },
+        { shot_id: "vector", node_id: "vector_node", start_sec: 2, end_sec: 3, duration_sec: 1, component: "VectorTransform", visual_goal: "Transform a vector.", narration: "The vector follows the same map." },
+        { shot_id: "landscape", node_id: "landscape_node", start_sec: 3, end_sec: 4, duration_sec: 1, component: "LossLandscape2D", visual_goal: "Show a loss surface.", narration: "Loss is height." },
+        { shot_id: "descent", node_id: "descent_node", start_sec: 4, end_sec: 5, duration_sec: 1, component: "PointDescent", visual_goal: "Step downhill.", narration: "Move against the gradient." },
+        { shot_id: "steps", node_id: "steps_node", start_sec: 5, end_sec: 6, duration_sec: 1, component: "StepByStepOptimization", visual_goal: "Summarize optimization steps.", narration: "Repeat the update." },
+      ],
+    };
+    const componentGraph = {
+      nodes: [
+        { id: "area_node", shot_id: "area", component: "AreaFillReveal", props: { function: "f(x)", bounds: "a to b", caption: "area accumulates under f(x)" } },
+        { id: "basis_node", shot_id: "basis", component: "BasisVectorReveal", props: { matrix: "[[1,1],[0,1]]", caption: "watch i-hat and j-hat land" } },
+        { id: "vector_node", shot_id: "vector", component: "VectorTransform", props: { vector: "(2,1)", result: "A x", caption: "the vector follows the basis" } },
+        { id: "landscape_node", shot_id: "landscape", component: "LossLandscape2D", props: { loss: "L(theta)", caption: "height means error" } },
+        { id: "descent_node", shot_id: "descent", component: "PointDescent", props: { path: "downhill", caption: "step opposite the gradient" } },
+        { id: "steps_node", shot_id: "steps", component: "StepByStepOptimization", props: { update_rule: "\\theta_{t+1}=\\theta_t-\\eta\\nabla L(\\theta_t)", caption: "repeat small updates" } },
+      ],
+    };
+
+    const checks = [
+      [0.5, "AreaFillReveal"],
+      [1.5, "BasisVectorReveal"],
+      [2.5, "VectorTransform"],
+      [3.5, "LossLandscape2D"],
+      [4.5, "PointDescent"],
+      [5.5, "StepByStepOptimization"],
+    ];
+
+    for (const [second, component] of checks) {
+      const svg = renderTimelineFrameSvg({ timeline, componentGraph, second });
+      expect(svg).toContain(`data-component="${component}"`);
+      expect(svg).not.toContain('data-component="GenericDiagram"');
+    }
+  });
+
   test("renders component graph videos with the SVG craft renderer instead of FFmpeg drawbox primitives", async () => {
     const outputDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "visual-render-"));
     const generateVideo = createVideoGenerator({ outputDirectory, durationSeconds: 1 });
@@ -243,5 +331,37 @@ describe("video generator", () => {
     });
     expect(result.frameRenderer).toBe("resvg-svg-components");
     expect(stat.size).toBeGreaterThan(4_000);
+  }, 20_000);
+
+  test("allows low source FPS for faster local smoke renders", async () => {
+    const outputDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "visual-render-lowfps-"));
+    const generateVideo = createVideoGenerator({ outputDirectory, durationSeconds: 1 });
+    const previousFrameFps = process.env.RENDER_FRAME_FPS;
+    process.env.RENDER_FRAME_FPS = "3";
+    let result;
+    try {
+      result = await generateVideo({
+        requestId: "svg-render-lowfps-test",
+        requestContext: {
+          id: "gradient-descent",
+          title: "Gradient descent",
+        },
+        componentGraph: sampleComponentGraph(),
+        timeline: sampleTimeline(),
+        creativeBrief: {
+          visual_style: "clean_dark_explainer",
+        },
+        renderPass: "preview",
+      });
+    } finally {
+      if (previousFrameFps === undefined) {
+        delete process.env.RENDER_FRAME_FPS;
+      } else {
+        process.env.RENDER_FRAME_FPS = previousFrameFps;
+      }
+    }
+
+    expect(result.sourceFps).toBe(3);
+    expect(result.frameCount).toBe(3);
   }, 20_000);
 });

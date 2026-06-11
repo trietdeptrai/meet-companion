@@ -278,8 +278,12 @@ export function createVideoGenerator({
     if (componentGraph && timeline && !sceneDsl) {
       const outputFps = Math.min(Math.max(Number(timeline.fps) || 30, 24), 30);
       const defaultSourceFps = renderPass === "preview" ? 6 : renderDuration > 30 ? 8 : 12;
+      const minSourceFps = Math.min(
+        Math.max(Number(process.env.RENDER_MIN_FRAME_FPS) || 3, 1),
+        outputFps,
+      );
       const sourceFps = Math.min(
-        Math.max(Number(process.env.RENDER_FRAME_FPS) || defaultSourceFps, 6),
+        Math.max(Number(process.env.RENDER_FRAME_FPS) || defaultSourceFps, minSourceFps),
         outputFps,
       );
       const frameDirectory = path.join(outputDirectory, ".frames", sanitizeFileName(requestId));

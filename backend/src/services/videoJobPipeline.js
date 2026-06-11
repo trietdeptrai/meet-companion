@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { matchConceptGrammar } from "./conceptGrammars.js";
 import { resolveDesignTokens } from "./designTokens.js";
 import {
   installMotionComponents,
@@ -132,6 +133,7 @@ function createRequestContext(config) {
     level: config.level,
     style: config.style_preset,
     quality_mode: config.quality_mode,
+    visual_grammar: matchConceptGrammar(config.normalized_concept),
   };
 }
 

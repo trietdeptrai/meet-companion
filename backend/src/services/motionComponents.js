@@ -14,8 +14,14 @@ export const motionComponentRegistry = [
   component("TangentReveal", ["math"], ["function"], ["caption", "x_focus"], ["manim", "ffmpeg"], "native"),
   component("SlopeTriangle", ["math"], ["slope"], ["caption"], ["manim", "ffmpeg"], "native"),
   component("RiemannRectangles", ["math"], ["function"], ["caption", "rectangles"], ["manim", "ffmpeg"], "native"),
+  component("AreaFillReveal", ["math"], ["function", "bounds"], ["caption"], ["manim", "ffmpeg"], "native"),
   component("VectorProjection", ["math"], ["vector_a", "vector_b"], ["caption"], ["manim", "ffmpeg"], "generic"),
   component("LinearTransformGrid", ["math"], ["transform"], ["caption"], ["manim", "ffmpeg"], "native"),
+  component("BasisVectorReveal", ["math"], ["matrix"], ["caption"], ["manim", "ffmpeg"], "native"),
+  component("VectorTransform", ["math"], ["vector", "result"], ["caption"], ["manim", "ffmpeg"], "native"),
+  component("LossLandscape2D", ["math"], ["loss"], ["caption"], ["manim", "ffmpeg"], "native"),
+  component("PointDescent", ["math"], ["path"], ["caption"], ["manim", "ffmpeg"], "native"),
+  component("StepByStepOptimization", ["math"], ["update_rule"], ["caption"], ["manim", "ffmpeg"], "native"),
   component("ProbabilityTiles", ["math"], ["groups"], ["caption"], ["motion_canvas", "ffmpeg"], "generic"),
   component("UnitCircleProjection", ["math"], ["angle"], ["caption"], ["manim", "ffmpeg"], "generic"),
   component("RotatingVectorsWave", ["math"], ["frequencies"], ["caption"], ["manim", "ffmpeg"], "generic"),
@@ -157,8 +163,34 @@ function completeComponentProps(componentId, props, shot, requestContext) {
       setDefaultProp(completed, "function", firstText(completed.function, completed.curve, shot?.visual_goal, "area curve"));
       setDefaultProp(completed, "caption", shotCaption);
       break;
+    case "AreaFillReveal":
+      setDefaultProp(completed, "function", firstText(completed.function, completed.curve, shot?.visual_goal, "f(x)"));
+      setDefaultProp(completed, "bounds", firstText(completed.bounds, completed.interval, "a to b"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
     case "LinearTransformGrid":
       setDefaultProp(completed, "transform", firstText(completed.transform, completed.annotation, shot?.visual_goal, "shear and stretch"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "BasisVectorReveal":
+      setDefaultProp(completed, "matrix", firstText(completed.matrix, completed.transform, completed.annotation, "A"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "VectorTransform":
+      setDefaultProp(completed, "vector", firstText(completed.vector, completed.input, "x"));
+      setDefaultProp(completed, "result", firstText(completed.result, completed.output, completed.transform, "A x"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "LossLandscape2D":
+      setDefaultProp(completed, "loss", firstText(completed.loss, completed.function, completed.landscape, "L(theta)"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "PointDescent":
+      setDefaultProp(completed, "path", firstText(completed.path, completed.motion, completed.descent_path, "downhill steps"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "StepByStepOptimization":
+      setDefaultProp(completed, "update_rule", firstText(completed.update_rule, completed.formula, shotFormula, "theta_next = theta - eta * grad L(theta)"));
       setDefaultProp(completed, "caption", shotCaption);
       break;
     case "SplitScreenComparison":
