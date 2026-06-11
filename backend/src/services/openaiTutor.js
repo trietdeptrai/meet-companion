@@ -1,4 +1,36 @@
 import OpenAI from "openai";
+import { listMotionComponents } from "./motionComponents.js";
+
+const componentIds = listMotionComponents().map((entry) => entry.component_id);
+
+const scoreSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "treatment_id",
+    "concept_accuracy_score",
+    "visual_clarity_score",
+    "component_availability_score",
+    "animation_beauty_score",
+    "pacing_score",
+    "feasibility_score",
+    "complexity_penalty",
+    "cognitive_load_penalty",
+    "final_score",
+  ],
+  properties: {
+    treatment_id: { type: "string" },
+    concept_accuracy_score: { type: "number" },
+    visual_clarity_score: { type: "number" },
+    component_availability_score: { type: "number" },
+    animation_beauty_score: { type: "number" },
+    pacing_score: { type: "number" },
+    feasibility_score: { type: "number" },
+    complexity_penalty: { type: "number" },
+    cognitive_load_penalty: { type: "number" },
+    final_score: { type: "number" },
+  },
+};
 
 const lessonSchema = {
   type: "object",
@@ -7,15 +39,18 @@ const lessonSchema = {
     "opening",
     "steps",
     "followUpQuestion",
-    "conceptAnalysis",
-    "visualPlan",
+    "conceptUnderstanding",
+    "knowledgeDecomposition",
+    "creativeTreatments",
+    "treatmentRanking",
+    "creativeBrief",
     "storyboard",
-    "sceneDsl",
+    "componentGraph",
   ],
   properties: {
     opening: {
       type: "string",
-      description: "A short friendly first explanation in the requested language.",
+      description: "A short warm first explanation in the requested language.",
     },
     steps: {
       type: "array",
@@ -26,209 +61,244 @@ const lessonSchema = {
         additionalProperties: false,
         required: ["atSeconds", "text"],
         properties: {
-          atSeconds: {
-            type: "number",
-            description: "Approximate second in the generated video for this caption.",
-          },
-          text: {
-            type: "string",
-            description: "Caption text aligned to the current visual step.",
-          },
+          atSeconds: { type: "number" },
+          text: { type: "string" },
         },
       },
     },
     followUpQuestion: {
       type: "string",
-      description: "One simple question the learner can answer after the video.",
+      description: "One simple check-for-understanding question.",
     },
-    conceptAnalysis: {
+    conceptUnderstanding: {
       type: "object",
       additionalProperties: false,
       required: [
         "concept_id",
         "domain",
         "subdomain",
+        "learning_objective",
         "prerequisites",
-        "key_claims",
-        "common_misconceptions",
-        "best_explanation_modes",
+        "key_ideas",
+        "misconceptions",
+        "visual_affordances",
       ],
       properties: {
         concept_id: { type: "string" },
         domain: { type: "string" },
         subdomain: { type: "string" },
+        learning_objective: { type: "string" },
         prerequisites: { type: "array", items: { type: "string" } },
-        key_claims: { type: "array", items: { type: "string" } },
-        common_misconceptions: { type: "array", items: { type: "string" } },
-        best_explanation_modes: { type: "array", items: { type: "string" } },
+        key_ideas: { type: "array", items: { type: "string" } },
+        misconceptions: { type: "array", items: { type: "string" } },
+        visual_affordances: { type: "array", items: { type: "string" } },
       },
     },
-    visualPlan: {
+    knowledgeDecomposition: {
       type: "object",
       additionalProperties: false,
-      required: ["selected_pattern_id", "visual_core", "visual_rules", "color_logic"],
+      required: ["atoms"],
       properties: {
-        selected_pattern_id: { type: "string" },
-        visual_core: { type: "string" },
-        visual_rules: { type: "array", items: { type: "string" } },
-        color_logic: {
-          type: "object",
-          additionalProperties: false,
-          required: ["primary", "secondary", "highlight"],
-          properties: {
-            primary: { type: "string" },
-            secondary: { type: "string" },
-            highlight: { type: "string" },
-          },
-        },
-      },
-    },
-    storyboard: {
-      type: "object",
-      additionalProperties: false,
-      required: ["total_duration_sec", "scenes"],
-      properties: {
-        total_duration_sec: { type: "number" },
-        scenes: {
+        atoms: {
           type: "array",
           minItems: 3,
-          maxItems: 5,
+          maxItems: 6,
           items: {
             type: "object",
             additionalProperties: false,
-            required: ["scene_id", "duration_sec", "learning_goal", "visual_goal", "objects", "animations", "camera", "labels"],
+            required: ["id", "idea", "visual_need"],
             properties: {
-              scene_id: { type: "string" },
-              duration_sec: { type: "number" },
-              learning_goal: { type: "string" },
-              visual_goal: { type: "string" },
-              objects: { type: "array", items: { type: "string" } },
-              animations: { type: "array", items: { type: "string" } },
-              camera: { type: "string" },
-              labels: { type: "array", items: { type: "string" } },
+              id: { type: "string" },
+              idea: { type: "string" },
+              visual_need: { type: "string" },
             },
           },
         },
       },
     },
-    sceneDsl: {
+    creativeTreatments: {
       type: "object",
       additionalProperties: false,
-      required: ["canvas", "scenes"],
+      required: ["concept", "treatments"],
       properties: {
-        canvas: {
-          type: "object",
-          additionalProperties: false,
-          required: ["background", "resolution", "style"],
-          properties: {
-            background: { type: "string" },
-            resolution: { type: "string" },
-            style: { type: "string" },
-          },
-        },
-        scenes: {
+        concept: { type: "string" },
+        treatments: {
           type: "array",
-          minItems: 3,
+          minItems: 2,
           maxItems: 5,
           items: {
             type: "object",
             additionalProperties: false,
-            required: ["scene_id", "objects", "animations", "camera"],
+            required: [
+              "treatment_id",
+              "title",
+              "one_liner",
+              "visual_hook",
+              "components",
+              "estimated_quality",
+              "estimated_feasibility",
+              "style_notes",
+            ],
             properties: {
-              scene_id: { type: "string" },
-              objects: {
+              treatment_id: { type: "string" },
+              title: { type: "string" },
+              one_liner: { type: "string" },
+              visual_hook: { type: "string" },
+              components: { type: "array", items: { type: "string", enum: componentIds } },
+              estimated_quality: { type: "number" },
+              estimated_feasibility: { type: "number" },
+              style_notes: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+    treatmentRanking: {
+      type: "object",
+      additionalProperties: false,
+      required: ["selected_treatment_id", "reason", "rejected_treatments", "scores"],
+      properties: {
+        selected_treatment_id: { type: "string" },
+        reason: { type: "string" },
+        rejected_treatments: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["id", "reason"],
+            properties: {
+              id: { type: "string" },
+              reason: { type: "string" },
+            },
+          },
+        },
+        scores: {
+          type: "array",
+          minItems: 1,
+          maxItems: 5,
+          items: scoreSchema,
+        },
+      },
+    },
+    creativeBrief: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "tone",
+        "visual_style",
+        "density",
+        "camera_style",
+        "color_strategy",
+        "motion_rules",
+      ],
+      properties: {
+        tone: { type: "string" },
+        visual_style: { type: "string" },
+        density: { type: "string" },
+        camera_style: { type: "string" },
+        color_strategy: {
+          type: "object",
+          additionalProperties: false,
+          required: ["background", "primary_math", "secondary_highlight", "inactive_objects"],
+          properties: {
+            background: { type: "string" },
+            primary_math: { type: "string" },
+            secondary_highlight: { type: "string" },
+            inactive_objects: { type: "string" },
+          },
+        },
+        motion_rules: { type: "array", items: { type: "string" } },
+      },
+    },
+    storyboard: {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "duration_sec", "shots"],
+      properties: {
+        title: { type: "string" },
+        duration_sec: { type: "number" },
+        shots: {
+          type: "array",
+          minItems: 3,
+          maxItems: 6,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "shot_id",
+              "duration_sec",
+              "visual_goal",
+              "main_component",
+              "camera",
+              "text_policy",
+              "narration",
+            ],
+            properties: {
+              shot_id: { type: "string" },
+              duration_sec: { type: "number" },
+              visual_goal: { type: "string" },
+              main_component: { type: "string", enum: componentIds },
+              camera: { type: "string" },
+              text_policy: { type: "string" },
+              narration: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    componentGraph: {
+      type: "object",
+      additionalProperties: false,
+      required: ["graph_id", "nodes", "edges"],
+      properties: {
+        graph_id: { type: "string" },
+        nodes: {
+          type: "array",
+          minItems: 3,
+          maxItems: 6,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["id", "shot_id", "component", "props", "style", "narration"],
+            properties: {
+              id: { type: "string" },
+              shot_id: { type: "string" },
+              component: { type: "string", enum: componentIds },
+              props: {
                 type: "array",
-                minItems: 3,
-                maxItems: 10,
                 items: {
                   type: "object",
                   additionalProperties: false,
-                  required: ["id", "type", "params", "style"],
+                  required: ["key", "value"],
                   properties: {
-                    id: { type: "string" },
-                    type: {
-                      type: "string",
-                      enum: ["axis", "curve", "rectangle", "region", "dot", "line", "arrow", "label", "formula", "geometric_object"],
-                    },
-                    params: {
-                      type: "object",
-                      additionalProperties: false,
-                      required: [
-                        "x",
-                        "y",
-                        "width",
-                        "height",
-                        "x1",
-                        "y1",
-                        "x2",
-                        "y2",
-                        "orientation",
-                        "text",
-                        "points",
-                      ],
-                      properties: {
-                        x: { type: "number" },
-                        y: { type: "number" },
-                        width: { type: "number" },
-                        height: { type: "number" },
-                        x1: { type: "number" },
-                        y1: { type: "number" },
-                        x2: { type: "number" },
-                        y2: { type: "number" },
-                        orientation: { type: "string" },
-                        text: { type: "string" },
-                        points: {
-                          type: "array",
-                          items: {
-                            type: "object",
-                            additionalProperties: false,
-                            required: ["x", "y"],
-                            properties: {
-                              x: { type: "number" },
-                              y: { type: "number" },
-                            },
-                          },
-                        },
-                      },
-                    },
-                    style: {
-                      type: "object",
-                      additionalProperties: false,
-                      required: ["stroke", "fill", "opacity"],
-                      properties: {
-                        stroke: { type: "string" },
-                        fill: { type: "string" },
-                        opacity: { type: "number" },
-                      },
-                    },
+                    key: { type: "string" },
+                    value: { type: "string" },
                   },
                 },
               },
-              animations: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["type", "target", "duration"],
-                  properties: {
-                    type: { type: "string" },
-                    target: { type: "string" },
-                    duration: { type: "number" },
-                  },
+              style: {
+                type: "object",
+                additionalProperties: false,
+                required: ["theme", "highlight_color_token"],
+                properties: {
+                  theme: { type: "string" },
+                  highlight_color_token: { type: "string" },
                 },
               },
-              camera: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["type", "duration"],
-                  properties: {
-                    type: { type: "string" },
-                    duration: { type: "number" },
-                  },
-                },
-              },
+              narration: { type: "string" },
+            },
+          },
+        },
+        edges: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["from", "to", "relation"],
+            properties: {
+              from: { type: "string" },
+              to: { type: "string" },
+              relation: { type: "string" },
             },
           },
         },
@@ -239,39 +309,39 @@ const lessonSchema = {
 
 function buildInstructions() {
   return [
-  [
-  "You are a warm, cinematic AI visual tutor for a screen-shared classroom demo.",
-  "Create a math explanation that feels like an elegant animated visual story, inspired by high-quality geometric math videos.",
-  "The video should have a clean 3Blue1Brown-like visual language: dark matte background, glowing geometric shapes, smooth camera movement, crisp labels, elegant formulas, and satisfying transformations.",
-  "Use simple mathematical objects: triangles, squares, circles, arrows, braces, grids, number lines, and color-coded regions.",
-  "Build the idea visually before introducing the formula.",
-  "Animate one concept at a time. Avoid clutter. Every movement should reveal a mathematical insight.",
-  "Use smooth morphing, fading, sliding, highlighting, and area transformations to make the concept feel intuitive.",
-  "Use rich but restrained colors: deep blues, purples, cyan, orange, yellow, and white text on a dark background.",
-  "Make formulas appear progressively, as if they are being discovered rather than dumped on screen.",
-  "Narrate the animation with short teaching beats that match the visual timing.",
-  "Use phrases like 'notice...', 'watch what happens...', 'the key idea is...', and 'that is why...'.",
-  "Do not claim that a new video, animation, or scene is being rendered live unless the system actually renders it live.",
-  "Use the learner's language when possible.",
-  "Keep the explanation compact enough to fit beside the video: 3–5 concise teaching beats.",
-  "End with a memorable one-sentence takeaway or a tiny check-for-understanding question."
-]
+    "You are the director and instructional designer for a cinematic AI visual tutor.",
+    "Create a product-grade v2 director plan, not renderer code.",
+    "The LLM chooses the explanation strategy, treatment, storyboard, and motion component graph.",
+    "The backend renderer owns pixels, layout, object spacing, camera interpolation, and visual QA.",
+    "Generate multiple creative treatments before choosing one.",
+    "Use a clean 3Blue1Brown-like mathematical style when appropriate: dark background, soft cyan/yellow highlights, smooth reveals, and low text density.",
+    "Build intuition first, then formula or abstraction.",
+    "Use the learner's language for opening, captions, narration, and follow-up.",
+    "Do not generate Manim code, FFmpeg filters, low-level coordinates, or sceneDsl.",
   ].join(" ");
 }
 
-function buildInput({ prompt, language, requestContext, template }) {
-  const context = requestContext ?? template ?? {};
+function buildInput({ prompt, language, requestContext, qualityMode, stylePreset }) {
+  const context = requestContext ?? {};
+  const components = listMotionComponents()
+    .map((entry) => `${entry.component_id}(${entry.supported_domains.join("/")})`)
+    .join(", ");
+
   return [
     `Learner request: ${prompt}`,
     `Language: ${language}`,
-    `Concept id: ${context.id ?? "visual-math-concept"}`,
-    "Return a complete structured plan for a 10-second visual explanation.",
-    "Do not choose visuals from keyword or concept templates. Analyze the concept and create sceneDsl objects that fit the concept's own structure.",
-    "The local renderer can draw these generic object types: axis, curve, rectangle, region, dot, line, arrow, label, formula, geometric_object.",
-    "Use normalized coordinates from 0 to 1 for params x, y, width, height, x1, y1, x2, y2, and curve points.",
-    "Every object params must include x, y, width, height, x1, y1, x2, y2, orientation, text, and points. Put 0, an empty string, or an empty array for unused fields.",
-    "Every object style must include stroke, fill, and opacity. Use simple color names: cyan, yellow, green, orange, white, muted, blue, red.",
-    "For any concept, choose objects because they explain the concept itself. Examples: an accumulation concept may use axes, a curve, rectangles, or regions; a rate-of-change concept may use a curve plus a tangent/secant line; a probability concept may use regions or branching.",
+    `Concept id: ${context.id ?? "visual-concept"}`,
+    `Target duration seconds: ${context.duration_sec ?? 10}`,
+    `Quality mode: ${qualityMode ?? context.quality_mode ?? "balanced"}`,
+    `Style preset: ${stylePreset ?? context.style ?? "clean_dark_explainer"}`,
+    "Return a complete PRD v2 director plan for a 10-second local explainer video.",
+    "Do not generate low-level pixel motion, renderer code, Manim code, FFmpeg filters, or sceneDsl.",
+    "Use componentGraph nodes that reference available motion component IDs.",
+    "Component props must be key/value string pairs because the backend validates and compiles them.",
+    "Available motion components:",
+    components,
+    "If a concept is new, pick the closest component vocabulary by visual affordance, then use GenericDiagram only as a dignified fallback.",
+    "The explanation should feel visual and polished, not like a list of definitions.",
   ].join("\n");
 }
 
@@ -299,9 +369,10 @@ function parseLesson(response) {
   if (
     typeof parsed.opening !== "string" ||
     !Array.isArray(parsed.steps) ||
-    typeof parsed.followUpQuestion !== "string"
+    typeof parsed.followUpQuestion !== "string" ||
+    !parsed.componentGraph
   ) {
-    throw new Error("OpenAI response did not match the tutor lesson schema.");
+    throw new Error("OpenAI response did not match the v2 director plan schema.");
   }
 
   return {
@@ -311,10 +382,13 @@ function parseLesson(response) {
       text: String(step.text),
     })),
     followUpQuestion: parsed.followUpQuestion,
-    conceptAnalysis: parsed.conceptAnalysis,
-    visualPlan: parsed.visualPlan,
+    conceptUnderstanding: parsed.conceptUnderstanding,
+    knowledgeDecomposition: parsed.knowledgeDecomposition,
+    creativeTreatments: parsed.creativeTreatments,
+    treatmentRanking: parsed.treatmentRanking,
+    creativeBrief: parsed.creativeBrief,
     storyboard: parsed.storyboard,
-    sceneDsl: parsed.sceneDsl,
+    componentGraph: parsed.componentGraph,
   };
 }
 
@@ -330,15 +404,21 @@ export function createOpenAITutor({
   const openai = client ?? new OpenAI({ apiKey });
 
   return {
-    async generateLesson({ prompt, language, template, requestContext }) {
+    async generateLesson({
+      prompt,
+      language,
+      requestContext,
+      qualityMode,
+      stylePreset,
+    }) {
       const response = await openai.responses.create({
         model,
         instructions: buildInstructions(),
-        input: buildInput({ prompt, language, template, requestContext }),
+        input: buildInput({ prompt, language, requestContext, qualityMode, stylePreset }),
         text: {
           format: {
             type: "json_schema",
-            name: "visual_tutor_lesson",
+            name: "visual_explain_v2_director_plan",
             strict: true,
             schema: lessonSchema,
           },

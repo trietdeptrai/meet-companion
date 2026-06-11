@@ -126,20 +126,21 @@ export function createApp({
     }
   });
 
-  app.post("/api/v1/video-jobs", async (req, res, next) => {
+  async function createVideoJob(req, res, next) {
     try {
       const job = await videoJobPipeline.createJob(req.body);
       res.status(202).json({
         job_id: job.job_id,
         project_id: job.project_id,
         status: job.status,
+        quality_mode: job.quality_mode,
       });
     } catch (error) {
       next(error);
     }
-  });
+  }
 
-  app.get("/api/v1/video-jobs/:jobId", async (req, res, next) => {
+  async function getVideoJob(req, res, next) {
     try {
       const job = await videoJobPipeline.getJob(req.params.jobId);
       if (!job) {
@@ -155,9 +156,9 @@ export function createApp({
     } catch (error) {
       next(error);
     }
-  });
+  }
 
-  app.get("/api/v1/video-jobs/:jobId/events", async (req, res, next) => {
+  async function streamVideoJobEvents(req, res, next) {
     try {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -194,9 +195,9 @@ export function createApp({
     } catch (error) {
       next(error);
     }
-  });
+  }
 
-  app.get("/api/v1/projects/:projectId", async (req, res, next) => {
+  async function getProject(req, res, next) {
     try {
       const project = await videoJobPipeline.getProject(req.params.projectId);
       if (!project) {
@@ -212,9 +213,9 @@ export function createApp({
     } catch (error) {
       next(error);
     }
-  });
+  }
 
-  app.get("/api/v1/metrics", async (req, res, next) => {
+  async function getMetrics(req, res, next) {
     try {
       res.json({
         ...metrics.snapshot(),
@@ -223,7 +224,36 @@ export function createApp({
     } catch (error) {
       next(error);
     }
+  }
+
+  app.post("/api/v2/video-jobs", createVideoJob);
+  app.get("/api/v2/video-jobs/:jobId", getVideoJob);
+  app.get("/api/v2/video-jobs/:jobId/events", streamVideoJobEvents);
+  app.get("/api/v2/projects/:projectId", getProject);
+  app.get("/api/v2/projects/:projectId/component-graph", async (req, res, next) => {
+    try {
+      const graph = await videoJobPipeline.getComponentGraph(req.params.projectId);
+      if (!graph) {
+        res.status(404).json({
+          error: {
+            code: "COMPONENT_GRAPH_NOT_FOUND",
+            message: "Component graph was not found for this project.",
+          },
+        });
+        return;
+      }
+      res.json(graph);
+    } catch (error) {
+      next(error);
+    }
   });
+  app.get("/api/v2/metrics", getMetrics);
+
+  app.post("/api/v1/video-jobs", createVideoJob);
+  app.get("/api/v1/video-jobs/:jobId", getVideoJob);
+  app.get("/api/v1/video-jobs/:jobId/events", streamVideoJobEvents);
+  app.get("/api/v1/projects/:projectId", getProject);
+  app.get("/api/v1/metrics", getMetrics);
 
   app.get("/metrics", (req, res) => {
     res.type("text/plain").send(metrics.prometheus());

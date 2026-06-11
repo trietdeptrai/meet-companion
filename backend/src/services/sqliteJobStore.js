@@ -114,6 +114,90 @@ export function createSqliteJobStore({ dataDirectory, databasePath }) {
         created_at TEXT NOT NULL,
         FOREIGN KEY(job_id) REFERENCES video_jobs(id)
       );
+
+      CREATE TABLE IF NOT EXISTS creative_treatments (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        treatment_id TEXT NOT NULL,
+        title TEXT,
+        visual_hook TEXT,
+        score REAL,
+        selected INTEGER DEFAULT 0,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(project_id) REFERENCES projects(id),
+        FOREIGN KEY(job_id) REFERENCES video_jobs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS component_graphs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(project_id) REFERENCES projects(id),
+        FOREIGN KEY(job_id) REFERENCES video_jobs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS timelines (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(project_id) REFERENCES projects(id),
+        FOREIGN KEY(job_id) REFERENCES video_jobs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS qa_reports (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        render_attempt_id TEXT,
+        qa_type TEXT NOT NULL,
+        score REAL,
+        passed INTEGER NOT NULL,
+        issues_json TEXT,
+        sampled_frames_json TEXT,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(project_id) REFERENCES projects(id),
+        FOREIGN KEY(job_id) REFERENCES video_jobs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS render_passes (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        job_id TEXT NOT NULL,
+        pass_type TEXT NOT NULL,
+        renderer TEXT NOT NULL,
+        status TEXT NOT NULL,
+        input_ref TEXT,
+        output_ref TEXT,
+        logs_ref TEXT,
+        duration_ms INTEGER,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(project_id) REFERENCES projects(id),
+        FOREIGN KEY(job_id) REFERENCES video_jobs(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS motion_components (
+        id TEXT PRIMARY KEY,
+        component_id TEXT NOT NULL,
+        version TEXT NOT NULL,
+        renderer TEXT NOT NULL,
+        quality_tier TEXT NOT NULL,
+        schema_json TEXT NOT NULL,
+        defaults_json TEXT NOT NULL,
+        examples_json TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE(component_id, version)
+      );
     `);
   }
 
@@ -291,9 +375,157 @@ export function createSqliteJobStore({ dataDirectory, databasePath }) {
       return attempt;
     },
 
+    async saveCreativeTreatment(treatment) {
+      await this.ensureReady();
+      getDb()
+        .prepare(`
+          INSERT OR REPLACE INTO creative_treatments (
+            id, project_id, job_id, treatment_id, title, visual_hook, score, selected, payload_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          treatment.id,
+          treatment.project_id,
+          treatment.job_id,
+          treatment.treatment_id,
+          treatment.title ?? null,
+          treatment.visual_hook ?? null,
+          treatment.score ?? null,
+          treatment.selected ? 1 : 0,
+          json(treatment.payload ?? treatment),
+          treatment.created_at,
+        );
+      return treatment;
+    },
+
+    async saveComponentGraph(graph) {
+      await this.ensureReady();
+      getDb()
+        .prepare(`
+          INSERT OR REPLACE INTO component_graphs (
+            id, project_id, job_id, version, status, payload_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          graph.id,
+          graph.project_id,
+          graph.job_id,
+          graph.version,
+          graph.status,
+          json(graph.payload),
+          graph.created_at,
+        );
+      return graph;
+    },
+
+    async saveTimeline(timeline) {
+      await this.ensureReady();
+      getDb()
+        .prepare(`
+          INSERT OR REPLACE INTO timelines (
+            id, project_id, job_id, version, payload_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          timeline.id,
+          timeline.project_id,
+          timeline.job_id,
+          timeline.version,
+          json(timeline.payload),
+          timeline.created_at,
+        );
+      return timeline;
+    },
+
+    async saveQaReport(report) {
+      await this.ensureReady();
+      getDb()
+        .prepare(`
+          INSERT OR REPLACE INTO qa_reports (
+            id, project_id, job_id, render_attempt_id, qa_type, score, passed,
+            issues_json, sampled_frames_json, payload_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          report.id,
+          report.project_id,
+          report.job_id,
+          report.render_attempt_id ?? null,
+          report.qa_type,
+          report.score ?? null,
+          report.passed ? 1 : 0,
+          json(report.issues ?? []),
+          json(report.sampled_frames ?? []),
+          json(report.payload ?? report),
+          report.created_at,
+        );
+      return report;
+    },
+
+    async saveRenderPass(renderPass) {
+      await this.ensureReady();
+      getDb()
+        .prepare(`
+          INSERT OR REPLACE INTO render_passes (
+            id, project_id, job_id, pass_type, renderer, status, input_ref, output_ref,
+            logs_ref, duration_ms, payload_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          renderPass.id,
+          renderPass.project_id,
+          renderPass.job_id,
+          renderPass.pass_type,
+          renderPass.renderer,
+          renderPass.status,
+          renderPass.input_ref ?? null,
+          renderPass.output_ref ?? null,
+          renderPass.logs_ref ?? null,
+          renderPass.duration_ms ?? null,
+          json(renderPass.payload ?? renderPass),
+          renderPass.created_at,
+        );
+      return renderPass;
+    },
+
+    async upsertMotionComponent(component) {
+      await this.ensureReady();
+      getDb()
+        .prepare(`
+          INSERT OR REPLACE INTO motion_components (
+            id, component_id, version, renderer, quality_tier, schema_json,
+            defaults_json, examples_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          `${component.component_id}:${component.version}`,
+          component.component_id,
+          component.version,
+          Array.isArray(component.renderer) ? component.renderer.join(",") : component.renderer,
+          component.quality_tier,
+          json(component.schema ?? {}),
+          json(component.defaults ?? {}),
+          json(component.examples ?? []),
+          component.created_at ?? new Date().toISOString(),
+        );
+      return component;
+    },
+
     async getCounts() {
       await this.ensureReady();
-      const tables = ["projects", "video_jobs", "artifacts", "pipeline_steps", "render_attempts"];
+      const tables = [
+        "projects",
+        "video_jobs",
+        "artifacts",
+        "pipeline_steps",
+        "render_attempts",
+        "creative_treatments",
+        "component_graphs",
+        "timelines",
+        "qa_reports",
+        "render_passes",
+        "motion_components",
+      ];
       return Object.fromEntries(
         tables.map((table) => [
           table,

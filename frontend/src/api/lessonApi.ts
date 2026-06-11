@@ -145,7 +145,7 @@ const assertCompletedJob = (job: VideoJobSnapshot): void => {
 };
 
 const createVideoJob = async (payload: GenerateLessonRequest): Promise<CreateVideoJobResponse> => {
-  const response = await fetch(`${config.apiBaseUrl}/api/v1/video-jobs`, {
+  const response = await fetch(`${config.apiBaseUrl}/api/v2/video-jobs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -155,7 +155,8 @@ const createVideoJob = async (payload: GenerateLessonRequest): Promise<CreateVid
       duration_sec: Math.min(Math.max(payload.durationSeconds ?? 10, 5), 10),
       language: payload.language,
       voiceover: false,
-      style: "visual_proof",
+      style_preset: "clean_dark_explainer",
+      quality_mode: "balanced",
       level: "beginner",
     }),
   });
@@ -169,7 +170,7 @@ const createVideoJob = async (payload: GenerateLessonRequest): Promise<CreateVid
 };
 
 const fetchVideoJob = async (jobId: string): Promise<VideoJobSnapshot> => {
-  const response = await fetch(`${config.apiBaseUrl}/api/v1/video-jobs/${jobId}`);
+  const response = await fetch(`${config.apiBaseUrl}/api/v2/video-jobs/${jobId}`);
 
   if (!response.ok) {
     const error = await parseError(response);

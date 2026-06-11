@@ -11,9 +11,9 @@ cp backend/.env.example backend/.env
 ```
 
 Add `OPENAI_API_KEY` to `backend/.env` before using the async job API. The PRD
-pipeline requires OpenAI planning; without it, `/api/v1/video-jobs` fails during
-planning instead of rendering a fake fallback video. The backend uses `ffmpeg`
-to create a fresh 10-second MP4 after planning succeeds.
+v2 pipeline requires OpenAI planning; without it, `/api/v2/video-jobs` fails
+during planning instead of rendering a fake fallback video. The backend uses
+`ffmpeg` to create a fresh 10-second MP4 after planning succeeds.
 For local simplicity, backend job/project state is stored in SQLite at
 `backend/data/visualexplain.sqlite`, generated videos go to
 `backend/public/generated/`, intermediate JSON artifacts go to
@@ -45,17 +45,18 @@ Open `http://localhost:5173`. Vite proxies `/api` and `/videos` to the backend.
 ## Backend Job API
 
 ```bash
-curl -X POST http://localhost:8787/api/v1/video-jobs \
+curl -X POST http://localhost:8787/api/v2/video-jobs \
   -H 'Content-Type: application/json' \
-  -d '{"concept":"Giải thích hệ toạ độ Decartes","language":"vi"}'
+  -d '{"concept":"Giải thích gradient descent như đi xuống thung lũng","language":"vi","quality_mode":"balanced"}'
 ```
 
 Then poll:
 
 ```bash
-curl http://localhost:8787/api/v1/video-jobs/<job_id>
-curl http://localhost:8787/api/v1/projects/<project_id>
-curl http://localhost:8787/api/v1/metrics
+curl http://localhost:8787/api/v2/video-jobs/<job_id>
+curl http://localhost:8787/api/v2/projects/<project_id>
+curl http://localhost:8787/api/v2/projects/<project_id>/component-graph
+curl http://localhost:8787/api/v2/metrics
 ```
 
 ## Test

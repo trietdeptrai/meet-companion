@@ -2,108 +2,162 @@ import { describe, expect, test, vi } from "vitest";
 import { createOpenAITutor } from "../src/services/openaiTutor.js";
 
 describe("OpenAI tutor adapter", () => {
-  test("requests a structured Vietnamese tutor script with the Responses API", async () => {
+  test("requests a structured v2 director plan without low-level scene DSL", async () => {
     const responsesCreate = vi.fn(async () => ({
       output_text: JSON.stringify({
-        opening: "Hay nhin vao tam giac vuong.",
+        opening: "Gradient descent giống như đi xuống một thung lũng lỗi.",
         steps: [
-          { atSeconds: 0, text: "Ve tam giac vuong." },
-          { atSeconds: 5, text: "Dung cac hinh vuong tren moi canh." },
-          { atSeconds: 11, text: "So sanh dien tich." },
+          { atSeconds: 0, text: "Vẽ một đường cong lỗi dạng thung lũng." },
+          { atSeconds: 2.5, text: "Chọn một điểm bắt đầu ở sườn dốc." },
+          { atSeconds: 5, text: "Đi ngược hướng gradient để lỗi giảm xuống." },
+          { atSeconds: 7.5, text: "Lặp lại cho tới khi gần đáy." },
         ],
-        followUpQuestion: "Neu a = 3 va b = 4 thi c la bao nhieu?",
-        conceptAnalysis: {
-          concept_id: "right_triangle_area",
+        followUpQuestion: "Nếu learning rate quá lớn thì chuyện gì có thể xảy ra?",
+        conceptUnderstanding: {
+          concept_id: "gradient_descent_valley",
           domain: "math",
-          subdomain: "geometry",
-          prerequisites: ["area"],
-          key_claims: ["A visual proof can compare areas."],
-          common_misconceptions: ["Confusing the hypotenuse with a leg."],
-          best_explanation_modes: ["area_comparison"],
+          subdomain: "optimization",
+          learning_objective: "Understand gradient descent as repeated movement against slope.",
+          prerequisites: ["slope", "function graph"],
+          key_ideas: ["The gradient points uphill.", "Move opposite the gradient.", "Repeat until loss is low."],
+          misconceptions: ["Gradient direction is the direction to move."],
+          visual_affordances: ["loss curve", "moving point", "arrows"],
         },
-        visualPlan: {
-          selected_pattern_id: "generated_scene_dsl",
-          visual_core: "Compare areas with simple geometric objects.",
-          visual_rules: ["Show the objects before the formula."],
-          color_logic: {
-            primary: "cyan",
-            secondary: "yellow",
-            highlight: "green",
+        knowledgeDecomposition: {
+          atoms: [
+            { id: "loss", idea: "Loss is height.", visual_need: "Show a valley curve." },
+            { id: "gradient", idea: "Gradient points uphill.", visual_need: "Show a local arrow." },
+            { id: "step", idea: "Move opposite gradient.", visual_need: "Animate downhill steps." },
+          ],
+        },
+        creativeTreatments: {
+          concept: "gradient descent as valley descent",
+          treatments: [
+            {
+              treatment_id: "valley_walk",
+              title: "Valley Walk",
+              one_liner: "A dot walks down a valley.",
+              visual_hook: "Downhill steps reveal optimization.",
+              components: ["HookTitle", "GraphPlot", "MovingPoint", "FormulaReveal"],
+              estimated_quality: 0.93,
+              estimated_feasibility: 0.91,
+              style_notes: ["low text"],
+            },
+            {
+              treatment_id: "slope_arrows",
+              title: "Slope Arrows",
+              one_liner: "Arrows flip from uphill to downhill.",
+              visual_hook: "The direction reversal is the insight.",
+              components: ["GraphPlot", "TangentReveal", "VisualRecap"],
+              estimated_quality: 0.84,
+              estimated_feasibility: 0.88,
+              style_notes: ["arrow-driven"],
+            },
+          ],
+        },
+        treatmentRanking: {
+          selected_treatment_id: "valley_walk",
+          reason: "It is concrete and visually direct.",
+          rejected_treatments: [{ id: "slope_arrows", reason: "Less memorable for beginners." }],
+          scores: [
+            {
+              treatment_id: "valley_walk",
+              concept_accuracy_score: 0.95,
+              visual_clarity_score: 0.94,
+              component_availability_score: 0.9,
+              animation_beauty_score: 0.88,
+              pacing_score: 0.86,
+              feasibility_score: 0.91,
+              complexity_penalty: 0.08,
+              cognitive_load_penalty: 0.07,
+              final_score: 0.91,
+            },
+          ],
+        },
+        creativeBrief: {
+          tone: "clean, curious, precise",
+          visual_style: "clean_dark_explainer",
+          density: "low_text_high_visual",
+          camera_style: "gentle push-in",
+          color_strategy: {
+            background: "deep navy",
+            primary_math: "soft cyan",
+            secondary_highlight: "warm yellow",
+            inactive_objects: "muted gray",
           },
+          motion_rules: ["One main motion per shot.", "Formula appears after visual intuition."],
         },
         storyboard: {
-          total_duration_sec: 10,
-          scenes: [
+          title: "Gradient descent",
+          duration_sec: 10,
+          shots: [
             {
-              scene_id: "s1",
-              duration_sec: 3,
-              learning_goal: "Introduce the shape.",
-              visual_goal: "Show the first object.",
-              objects: ["axis", "shape", "label"],
-              animations: ["fade_in"],
-              camera: "static_center",
-              labels: ["shape"],
+              shot_id: "sh01",
+              duration_sec: 2,
+              visual_goal: "Introduce loss valley.",
+              main_component: "HookTitle",
+              camera: "slow_push_in",
+              text_policy: "title_only",
+              narration: "Imagine error as a valley.",
             },
             {
-              scene_id: "s2",
-              duration_sec: 4,
-              learning_goal: "Show the relation.",
-              visual_goal: "Highlight the relation.",
-              objects: ["shape", "area", "arrow"],
-              animations: ["highlight"],
+              shot_id: "sh02",
+              duration_sec: 3,
+              visual_goal: "Show curve and start point.",
+              main_component: "GraphPlot",
               camera: "static_center",
-              labels: ["area"],
+              text_policy: "minimal_label",
+              narration: "We start high on the curve.",
             },
             {
-              scene_id: "s3",
+              shot_id: "sh03",
               duration_sec: 3,
-              learning_goal: "Summarize.",
-              visual_goal: "Show the formula.",
-              objects: ["formula", "label", "dot"],
-              animations: ["write_label"],
-              camera: "static_center",
-              labels: ["formula"],
+              visual_goal: "Animate downhill steps.",
+              main_component: "MovingPoint",
+              camera: "center_on_point",
+              text_policy: "no_text",
+              narration: "Move opposite the gradient.",
+            },
+            {
+              shot_id: "sh04",
+              duration_sec: 2,
+              visual_goal: "Reveal update rule.",
+              main_component: "FormulaReveal",
+              camera: "wide_summary",
+              text_policy: "final_formula",
+              narration: "That is the update rule.",
             },
           ],
         },
-        sceneDsl: {
-          canvas: {
-            background: "dark",
-            resolution: "1280x720",
-            style: "generated geometric scene",
-          },
-          scenes: [
+        componentGraph: {
+          graph_id: "gradient_graph",
+          nodes: [
             {
-              scene_id: "s1",
-              objects: [
-                { id: "x_axis", type: "axis", params: { orientation: "horizontal", y: 0.75 }, style: { stroke: "muted" } },
-                { id: "shape", type: "rectangle", params: { x: 0.3, y: 0.35, width: 0.2, height: 0.2 }, style: { fill: "green", stroke: "green" } },
-                { id: "label", type: "label", params: { x: 0.3, y: 0.2, text: "Area" }, style: { stroke: "white" } },
-              ],
-              animations: [{ type: "fade_in", target: "shape", duration: 1 }],
-              camera: [{ type: "static_center", duration: 1 }],
+              id: "n1",
+              shot_id: "sh01",
+              component: "HookTitle",
+              props: [{ key: "title", value: "Gradient descent" }],
+              style: { theme: "clean_dark_explainer", highlight_color_token: "primary" },
+              narration: "Imagine error as a valley.",
             },
             {
-              scene_id: "s2",
-              objects: [
-                { id: "x_axis", type: "axis", params: { orientation: "horizontal", y: 0.75 }, style: { stroke: "muted" } },
-                { id: "area", type: "region", params: { x: 0.3, y: 0.35, width: 0.2, height: 0.2 }, style: { fill: "green", stroke: "green" } },
-                { id: "arrow", type: "arrow", params: { x1: 0.2, y1: 0.4, x2: 0.5, y2: 0.4 }, style: { stroke: "yellow" } },
-              ],
-              animations: [{ type: "highlight", target: "area", duration: 1 }],
-              camera: [{ type: "static_center", duration: 1 }],
+              id: "n2",
+              shot_id: "sh02",
+              component: "GraphPlot",
+              props: [{ key: "function", value: "convex loss" }],
+              style: { theme: "clean_dark_explainer", highlight_color_token: "primary" },
+              narration: "We start high on the curve.",
             },
             {
-              scene_id: "s3",
-              objects: [
-                { id: "formula", type: "formula", params: { x: 0.45, y: 0.22, text: "A" }, style: { stroke: "white" } },
-                { id: "label", type: "label", params: { x: 0.3, y: 0.3, text: "sum" }, style: { stroke: "cyan" } },
-                { id: "dot", type: "dot", params: { x: 0.5, y: 0.5 }, style: { fill: "yellow" } },
-              ],
-              animations: [{ type: "write_label", target: "formula", duration: 1 }],
-              camera: [{ type: "static_center", duration: 1 }],
+              id: "n3",
+              shot_id: "sh03",
+              component: "MovingPoint",
+              props: [{ key: "path", value: "downhill steps" }],
+              style: { theme: "clean_dark_explainer", highlight_color_token: "secondary" },
+              narration: "Move opposite the gradient.",
             },
           ],
+          edges: [{ from: "n1", to: "n2", relation: "sequence" }],
         },
       }),
     }));
@@ -111,26 +165,33 @@ describe("OpenAI tutor adapter", () => {
     const tutor = createOpenAITutor({ client, model: "gpt-test" });
 
     const lesson = await tutor.generateLesson({
-      prompt: "Giải thích định lý Pytagore",
+      prompt: "Giải thích gradient descent như đi xuống thung lũng",
       language: "vi",
       requestContext: {
-        id: "pythagorean-theorem",
-        title: "Dinh ly Pytagore",
+        id: "gradient-descent-valley",
+        title: "Gradient descent",
       },
+      qualityMode: "best",
     });
 
     expect(responsesCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-test",
-        instructions: expect.stringContaining("visual tutor"),
-        input: expect.stringContaining("Giải thích định lý Pytagore"),
+        instructions: expect.stringContaining("director"),
+        input: expect.stringContaining("Giải thích gradient descent"),
       }),
     );
-    expect(lesson.followUpQuestion).toContain("a = 3");
-    expect(lesson.steps).toHaveLength(3);
-    expect(lesson.visualPlan.selected_pattern_id).toBe("generated_scene_dsl");
-    expect(lesson.sceneDsl.scenes[0].objects).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: "rectangle" })]),
+    const request = responsesCreate.mock.calls[0][0];
+    expect(request.text.format.schema.required).toContain("componentGraph");
+    expect(request.text.format.schema.required).not.toContain("sceneDsl");
+    expect(request.text.format.schema.properties.componentGraph.properties.nodes.items.properties.component.enum).toContain("GraphPlot");
+    expect(request.input).toContain("Do not generate low-level pixel motion");
+    expect(lesson.followUpQuestion).toContain("learning rate");
+    expect(lesson.creativeTreatments.treatments).toHaveLength(2);
+    expect(lesson.treatmentRanking.selected_treatment_id).toBe("valley_walk");
+    expect(lesson.componentGraph.nodes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ component: "MovingPoint" })]),
     );
+    expect(lesson).not.toHaveProperty("sceneDsl");
   });
 });

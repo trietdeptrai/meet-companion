@@ -18,7 +18,7 @@ describe("generateLesson", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
-      if (url.endsWith("/api/v1/video-jobs")) {
+      if (url.endsWith("/api/v2/video-jobs")) {
         return jsonResponse(
           {
             job_id: "job-123",
@@ -29,7 +29,7 @@ describe("generateLesson", () => {
         );
       }
 
-      if (url.endsWith("/api/v1/video-jobs/job-123")) {
+      if (url.endsWith("/api/v2/video-jobs/job-123")) {
         return jsonResponse({
           job_id: "job-123",
           project_id: "project-123",
@@ -79,8 +79,8 @@ describe("generateLesson", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v1/video-jobs");
-    expect(String(fetchMock.mock.calls[1]?.[0])).toBe("/api/v1/video-jobs/job-123");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v2/video-jobs");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe("/api/v2/video-jobs/job-123");
     expect(lesson).toMatchObject({
       id: "job-123",
       status: "ready",

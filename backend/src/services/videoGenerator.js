@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { compileSceneDslFromTimeline } from "./componentSceneCompiler.js";
 
 const execFileAsync = promisify(execFile);
 const defaultDurationSeconds = 10;
@@ -254,12 +255,31 @@ export function createVideoGenerator({
     throw new Error("outputDirectory is required to generate videos.");
   }
 
-  return async function generateVideo({ requestId, template, requestContext, sceneDsl, visualPlan }) {
+  return async function generateVideo({
+    requestId,
+    template,
+    requestContext,
+    sceneDsl,
+    visualPlan,
+    componentGraph,
+    timeline,
+    creativeBrief,
+    renderPass = "final",
+  }) {
     await fs.mkdir(outputDirectory, { recursive: true });
 
     const fileName = `${sanitizeFileName(requestId)}.mp4`;
     const outputPath = path.join(outputDirectory, fileName);
-    const filter = buildSceneDslFilter(sceneDsl, durationSeconds);
+    const compiledSceneDsl = sceneDsl ?? compileSceneDslFromTimeline({
+      timeline,
+      componentGraph,
+      creativeBrief,
+    });
+    const renderDuration = Math.min(
+      Math.max(Number(timeline?.duration_sec) || durationSeconds, 5),
+      10,
+    );
+    const filter = buildSceneDslFilter(compiledSceneDsl, renderDuration);
 
     await execFileAsync(ffmpegPath, [
       "-hide_banner",
@@ -269,7 +289,7 @@ export function createVideoGenerator({
       "-f",
       "lavfi",
       "-i",
-      `color=c=0x080c18:s=${width}x${height}:r=30:d=${durationSeconds}`,
+      `color=c=0x080c18:s=${width}x${height}:r=30:d=${renderDuration}`,
       "-vf",
       filter,
       "-c:v",
@@ -281,13 +301,16 @@ export function createVideoGenerator({
 
     return {
       conceptId: requestContext?.id ?? template?.id ?? requestId,
-      renderer: "scene-dsl-ffmpeg",
+      renderer: componentGraph ? "component-graph-ffmpeg" : "scene-dsl-ffmpeg",
+      renderPass,
       patternId: visualPlan?.selected_pattern_id,
       url: `/generated/${fileName}`,
       mimeType: "video/mp4",
-      durationSeconds,
+      durationSeconds: renderDuration,
       generated: true,
-      style: sceneDsl?.canvas?.style || "scene-dsl visual explainer",
+      style: compiledSceneDsl?.canvas?.style || "component graph visual explainer",
+      sceneCount: compiledSceneDsl?.scenes?.length ?? 0,
+      componentCount: componentGraph?.nodes?.length ?? 0,
     };
   };
 }
