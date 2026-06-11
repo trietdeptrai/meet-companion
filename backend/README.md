@@ -2,7 +2,7 @@
 
 Backend for the Google Meet visual tutor demo. It turns a learner prompt like
 `Giải thích gradient descent như đi xuống thung lũng` into a generated
-10-second MP4 plus a tutor script, storyboard/shot list, editable component
+adaptive-length English MP4 plus a tutor script, storyboard/shot list, editable component
 graph, timeline, QA report, render pass metadata, and follow-up question.
 
 ## Setup
@@ -61,8 +61,8 @@ curl -X POST http://localhost:8787/api/v2/video-jobs \
     "concept":"Giải thích gradient descent như đi xuống thung lũng",
     "domain":"auto",
     "level":"beginner",
-    "duration_sec":60,
-    "language":"vi",
+    "duration_sec":24,
+    "output_language":"en",
     "voiceover":false,
     "style_preset":"clean_dark_explainer",
     "quality_mode":"balanced"
@@ -70,8 +70,8 @@ curl -X POST http://localhost:8787/api/v2/video-jobs \
 ```
 
 The local MVP returns immediately with a `job_id` and processes the job in the
-same Node process. The requested duration is capped to 10 seconds for local
-speed. If OpenAI is not configured, the job stops during concept understanding
+same Node process. The requested duration is allowed from 8 to 60 seconds for
+local quality rendering. If OpenAI is not configured, the job stops during concept understanding
 and does not create a `video_mp4` artifact.
 
 `/api/v2/video-jobs` does not choose from fixed concept videos and does not ask
@@ -86,7 +86,7 @@ returns:
 - `storyboard`
 - `componentGraph`
 
-The backend then validates the motion component graph, compiles a 10-second
+The backend then validates the motion component graph, compiles an adaptive-length
 timeline, allocates renderers, runs preflight, renders a preview, runs visual
 QA, records a repair/polish decision, renders the final MP4, and saves editable
 project artifacts locally. Component graph videos use the local SVG craft

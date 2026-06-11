@@ -192,7 +192,7 @@ const renderVideoFrame = (): string => {
         <span class="point"></span>
       </div>
       <strong>Ask for a visual explanation</strong>
-      <p>The generated 10-second MP4 will replace this preview.</p>
+      <p>The generated visual explainer MP4 will replace this preview.</p>
     </div>
   `;
 };
@@ -280,7 +280,7 @@ const render = (): void => {
               <p class="section-kicker">Video preview</p>
               <h2 id="preview-title">${escapeHtml(state.lesson?.title ?? state.concept)}</h2>
             </div>
-            <span class="duration-pill">10s max</span>
+            <span class="duration-pill">English video</span>
           </div>
 
           <div class="video-frame">
@@ -303,7 +303,7 @@ const readForm = (): GenerateLessonRequest => {
 
   return {
     concept: normalizeConcept(conceptInput?.value ?? state.concept),
-    durationSeconds: 10,
+    durationSeconds: 24,
   };
 };
 

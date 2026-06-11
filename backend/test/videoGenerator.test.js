@@ -7,7 +7,7 @@ import { createVideoGenerator } from "../src/services/videoGenerator.js";
 
 function sampleTimeline() {
   return {
-    duration_sec: 2,
+    duration_sec: 1,
     fps: 30,
     resolution: "1280x720",
     theme_id: "clean_dark_explainer",
@@ -21,8 +21,8 @@ function sampleTimeline() {
         shot_id: "sh01",
         node_id: "n1",
         start_sec: 0,
-        end_sec: 0.6,
-        duration_sec: 0.6,
+        end_sec: 0.3,
+        duration_sec: 0.3,
         component: "HookTitle",
         visual_goal: "Introduce gradient descent.",
         camera: { type: "slow_push_in" },
@@ -32,9 +32,9 @@ function sampleTimeline() {
       {
         shot_id: "sh02",
         node_id: "n2",
-        start_sec: 0.6,
-        end_sec: 1.4,
-        duration_sec: 0.8,
+        start_sec: 0.3,
+        end_sec: 0.7,
+        duration_sec: 0.4,
         component: "MovingPoint",
         visual_goal: "Show the point walking downhill.",
         camera: { type: "center_on_point" },
@@ -44,9 +44,9 @@ function sampleTimeline() {
       {
         shot_id: "sh03",
         node_id: "n3",
-        start_sec: 1.4,
-        end_sec: 2,
-        duration_sec: 0.6,
+        start_sec: 0.7,
+        end_sec: 1,
+        duration_sec: 0.3,
         component: "FormulaReveal",
         visual_goal: "Reveal the update rule.",
         camera: { type: "wide_summary" },
@@ -102,7 +102,7 @@ describe("video generator", () => {
     const svg = renderTimelineFrameSvg({
       timeline: sampleTimeline(),
       componentGraph: sampleComponentGraph(),
-      second: 0.5,
+      second: 0.1,
     });
 
     expect(svg).toContain("<text");
@@ -114,21 +114,31 @@ describe("video generator", () => {
 
   test("renders component graph videos with the SVG craft renderer instead of FFmpeg drawbox primitives", async () => {
     const outputDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "visual-render-"));
-    const generateVideo = createVideoGenerator({ outputDirectory, durationSeconds: 2 });
-
-    const result = await generateVideo({
-      requestId: "svg-render-test",
-      requestContext: {
-        id: "gradient-descent",
-        title: "Gradient descent",
-      },
-      componentGraph: sampleComponentGraph(),
-      timeline: sampleTimeline(),
-      creativeBrief: {
-        visual_style: "clean_dark_explainer",
-      },
-      renderPass: "final",
-    });
+    const generateVideo = createVideoGenerator({ outputDirectory, durationSeconds: 1 });
+    const previousFrameFps = process.env.RENDER_FRAME_FPS;
+    process.env.RENDER_FRAME_FPS = "6";
+    let result;
+    try {
+      result = await generateVideo({
+        requestId: "svg-render-test",
+        requestContext: {
+          id: "gradient-descent",
+          title: "Gradient descent",
+        },
+        componentGraph: sampleComponentGraph(),
+        timeline: sampleTimeline(),
+        creativeBrief: {
+          visual_style: "clean_dark_explainer",
+        },
+        renderPass: "final",
+      });
+    } finally {
+      if (previousFrameFps === undefined) {
+        delete process.env.RENDER_FRAME_FPS;
+      } else {
+        process.env.RENDER_FRAME_FPS = previousFrameFps;
+      }
+    }
 
     const absolutePath = path.join(outputDirectory, "svg-render-test.mp4");
     const stat = await fs.stat(absolutePath);
@@ -137,11 +147,11 @@ describe("video generator", () => {
       renderer: "svg-component-ffmpeg",
       url: "/generated/svg-render-test.mp4",
       mimeType: "video/mp4",
-      durationSeconds: 2,
+      durationSeconds: 1,
       sceneCount: 3,
       componentCount: 3,
     });
     expect(result.frameRenderer).toBe("resvg-svg-components");
-    expect(stat.size).toBeGreaterThan(10_000);
+    expect(stat.size).toBeGreaterThan(4_000);
   }, 20_000);
 });

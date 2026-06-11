@@ -102,7 +102,7 @@ const lessonSchema = {
         atoms: {
           type: "array",
           minItems: 3,
-          maxItems: 6,
+          maxItems: 8,
           items: {
             type: "object",
             additionalProperties: false,
@@ -220,7 +220,7 @@ const lessonSchema = {
         shots: {
           type: "array",
           minItems: 3,
-          maxItems: 6,
+          maxItems: 8,
           items: {
             type: "object",
             additionalProperties: false,
@@ -316,7 +316,9 @@ function buildInstructions() {
     "Generate multiple creative treatments before choosing one.",
     "Use a clean 3Blue1Brown-like mathematical style when appropriate: dark background, soft cyan/yellow highlights, smooth reveals, and low text density.",
     "Build intuition first, then formula or abstraction.",
-    "Use the learner's language for opening, captions, narration, and follow-up.",
+    "Use the requested video language for opening, captions, narration, and follow-up.",
+    "Every user-visible text field in the JSON must use the requested video language, including opening, steps.text, followUpQuestion, storyboard title, shot narration, and component props such as title, subtitle, caption, formula, labels, and annotations.",
+    "If the learner request is not in the requested video language, translate the concept naturally and keep all on-screen text in the requested video language.",
     "Do not generate Manim code, FFmpeg filters, low-level coordinates, or sceneDsl.",
   ].join(" ");
 }
@@ -329,12 +331,15 @@ function buildInput({ prompt, language, requestContext, qualityMode, stylePreset
 
   return [
     `Learner request: ${prompt}`,
-    `Language: ${language}`,
+    `Video language: ${language}`,
+    language === "en"
+      ? "For this request, all visible tutor/video text must be English even if the learner request is Vietnamese or another language."
+      : `For this request, all visible tutor/video text must be in ${language}.`,
     `Concept id: ${context.id ?? "visual-concept"}`,
-    `Target duration seconds: ${context.duration_sec ?? 10}`,
+    `Target duration seconds: ${context.duration_sec ?? 24}`,
     `Quality mode: ${qualityMode ?? context.quality_mode ?? "balanced"}`,
     `Style preset: ${stylePreset ?? context.style ?? "clean_dark_explainer"}`,
-    "Return a complete PRD v2 director plan for a 10-second local explainer video.",
+    "Return a complete PRD v2 director plan for the target duration. Use enough shots to make the concept intuitive, but keep the pacing calm and uncluttered.",
     "Do not generate low-level pixel motion, renderer code, Manim code, FFmpeg filters, or sceneDsl.",
     "Use componentGraph nodes that reference available motion component IDs.",
     "For math concepts, prefer precise native components such as GraphPlot, GraphLocalZoom, TangentReveal, SlopeTriangle, RiemannRectangles, MovingPoint, FormulaReveal, and VisualRecap.",

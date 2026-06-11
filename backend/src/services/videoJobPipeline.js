@@ -22,6 +22,8 @@ const terminalStatuses = new Set([
 
 const defaultCaptionTimings = [0, 2.5, 5, 7.5];
 const qualityModes = new Set(["fast", "balanced", "best"]);
+const defaultVideoDurationSeconds = 24;
+const maxLocalVideoDurationSeconds = 60;
 
 function now() {
   return new Date().toISOString();
@@ -106,9 +108,13 @@ function validateRequest(payload) {
     normalized_concept: concept,
     domain: payload?.domain || "auto",
     level: payload?.level || "beginner",
-    duration_sec: Math.min(Math.max(Number(payload?.duration_sec) || 10, 5), 10),
+    duration_sec: Math.min(
+      Math.max(Number(payload?.duration_sec) || defaultVideoDurationSeconds, 8),
+      maxLocalVideoDurationSeconds,
+    ),
     voiceover: Boolean(payload?.voiceover),
-    language: payload?.language || detectLanguage(concept),
+    input_language: payload?.input_language || detectLanguage(concept),
+    language: payload?.output_language || "en",
     style_preset: payload?.style_preset || payload?.style || "clean_dark_explainer",
     style: payload?.style_preset || payload?.style || "clean_dark_explainer",
     quality_mode: qualityMode,
@@ -319,7 +325,7 @@ function normalizeStoryboardShotlist(plannerOutput, config) {
   return {
     title: String(source.title || titleFromConcept(config.normalized_concept)),
     duration_sec: config.duration_sec,
-    shots: source.shots.slice(0, 6).map((shot, index) => ({
+    shots: source.shots.slice(0, 8).map((shot, index) => ({
       shot_id: String(shot?.shot_id || `sh${index + 1}`),
       duration_sec: Math.max(1, numberValue(shot?.duration_sec, 2)),
       visual_goal: String(shot?.visual_goal || "Explain one visual idea."),

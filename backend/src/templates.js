@@ -95,7 +95,7 @@ export function getTemplateSummaries() {
       title: "Dynamic prompt video",
       storyboard: [
         "Use the prompt to generate a short visual lesson.",
-        "Render a 10-second MP4 scene from the selected visual style.",
+        "Render a short MP4 scene from the selected visual style.",
       ],
       videoStyle: "3Blue1Brown-like dynamic visual math explainer",
     },

@@ -416,7 +416,7 @@ export function renderTimelineFrameSvg({ timeline, componentGraph, second }) {
 export async function renderSvgFrames({ frameDirectory, timeline, componentGraph, fps = 30 }) {
   await fs.rm(frameDirectory, { recursive: true, force: true });
   await fs.mkdir(frameDirectory, { recursive: true });
-  const duration = Math.min(Math.max(Number(timeline?.duration_sec) || 10, 1), 10);
+  const duration = Math.min(Math.max(Number(timeline?.duration_sec) || 24, 1), 60);
   const frameCount = Math.max(1, Math.round(duration * fps));
 
   for (let index = 0; index < frameCount; index += 1) {

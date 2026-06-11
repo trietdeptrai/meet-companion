@@ -151,11 +151,11 @@ function createGradientDescentPlannerOutput() {
     },
     storyboard: {
       title: "Gradient Descent As A Valley Walk",
-      duration_sec: 10,
+      duration_sec: 24,
       shots: [
         {
           shot_id: "sh01_hook",
-          duration_sec: 2,
+          duration_sec: 5,
           visual_goal: "Introduce the loss valley.",
           main_component: "HookTitle",
           camera: "slow_push_in",
@@ -164,7 +164,7 @@ function createGradientDescentPlannerOutput() {
         },
         {
           shot_id: "sh02_landscape",
-          duration_sec: 3,
+          duration_sec: 7,
           visual_goal: "Show a starting point on the loss curve.",
           main_component: "GraphPlot",
           camera: "static_center",
@@ -173,7 +173,7 @@ function createGradientDescentPlannerOutput() {
         },
         {
           shot_id: "sh03_steps",
-          duration_sec: 3,
+          duration_sec: 7,
           visual_goal: "Show a point stepping downhill against the slope.",
           main_component: "MovingPoint",
           camera: "center_on_point",
@@ -182,7 +182,7 @@ function createGradientDescentPlannerOutput() {
         },
         {
           shot_id: "sh04_formula",
-          duration_sec: 2,
+          duration_sec: 5,
           visual_goal: "Reveal the update rule after the motion.",
           main_component: "FormulaReveal",
           camera: "wide_summary",
@@ -254,7 +254,7 @@ describe("Video job API", () => {
         renderPass,
         url: `/generated/${fileName}`,
         mimeType: "video/mp4",
-        durationSeconds: 10,
+        durationSeconds: timeline.duration_sec,
         generated: true,
         componentCount: componentGraph.nodes.length,
         timelineShotCount: timeline.shots.length,
@@ -276,7 +276,7 @@ describe("Video job API", () => {
         concept: "Giải thích gradient descent như đi xuống thung lũng",
         domain: "auto",
         level: "beginner",
-        duration_sec: 60,
+        duration_sec: 24,
         language: "vi",
         voiceover: false,
         style_preset: "clean_dark_explainer",
@@ -301,8 +301,10 @@ describe("Video job API", () => {
     });
     expect(completedJob.config).toMatchObject({
       normalized_concept: "Giải thích gradient descent như đi xuống thung lũng",
-      duration_sec: 10,
+      duration_sec: 24,
       level: "beginner",
+      language: "en",
+      input_language: "vi",
       style_preset: "clean_dark_explainer",
       quality_mode: "best",
     });
@@ -350,7 +352,8 @@ describe("Video job API", () => {
       prompt: "Giải thích gradient descent như đi xuống thung lũng",
       requestContext: {
         title: "gradient descent như đi xuống thung lũng",
-        duration_sec: 10,
+        duration_sec: 24,
+        language: "en",
       },
       qualityMode: "best",
     });
@@ -367,6 +370,7 @@ describe("Video job API", () => {
         expect.objectContaining({ component: "FormulaReveal" }),
       ]),
     );
+    expect(generateVideo.mock.calls[1][0].timeline.duration_sec).toBe(24);
     expect(generateVideo.mock.calls[1][0].timeline.shots).toHaveLength(4);
     expect(completedJob.video.url).toMatch(/-final\.mp4$/);
     expect(completedJob.qa_reports[0]).toMatchObject({
@@ -386,7 +390,7 @@ describe("Video job API", () => {
         nodes: expect.arrayContaining([expect.objectContaining({ component: "GraphPlot" })]),
       },
       timeline: {
-        duration_sec: 10,
+        duration_sec: 24,
       },
       logs_url: `/api/v2/video-jobs/${createResponse.body.job_id}`,
     });

@@ -1,7 +1,7 @@
 import { getMotionComponent } from "./motionComponents.js";
 
 function clampDuration(durationSeconds) {
-  return Math.min(Math.max(Number(durationSeconds) || 10, 5), 10);
+  return Math.min(Math.max(Number(durationSeconds) || 24, 8), 60);
 }
 
 function shotDurationScale(shots, durationSeconds) {
@@ -135,11 +135,11 @@ export function runStaticPreflight({ componentGraph, timeline, designTokens }) {
     }
   }
 
-  if (timeline.shots.length > 6) {
+  if (timeline.shots.length > 8) {
     issues.push({
       severity: "medium",
       type: "too_many_shots",
-      description: "Local 10 second mode should keep the storyboard to six shots or fewer.",
+      description: "Local explainer mode should keep the storyboard to eight shots or fewer.",
     });
   }
 
@@ -148,7 +148,7 @@ export function runStaticPreflight({ componentGraph, timeline, designTokens }) {
     issues,
     checks: [
       "component_nodes_resolve",
-      "timeline_duration_capped",
+      "timeline_duration_within_local_bounds",
       "shot_count_local_mvp",
       "safe_margin_policy_present",
     ],

@@ -152,8 +152,9 @@ const createVideoJob = async (payload: GenerateLessonRequest): Promise<CreateVid
     },
     body: JSON.stringify({
       concept: payload.concept,
-      duration_sec: Math.min(Math.max(payload.durationSeconds ?? 10, 5), 10),
-      language: payload.language,
+      duration_sec: Math.min(Math.max(payload.durationSeconds ?? 24, 8), 60),
+      language: "en",
+      output_language: "en",
       voiceover: false,
       style_preset: "clean_dark_explainer",
       quality_mode: "balanced",

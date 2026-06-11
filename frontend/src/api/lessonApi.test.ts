@@ -15,7 +15,7 @@ describe("generateLesson", () => {
   });
 
   test("creates and polls a backend video job instead of using the legacy sync endpoint", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
 
       if (url.endsWith("/api/v2/video-jobs")) {
@@ -73,7 +73,6 @@ describe("generateLesson", () => {
     const lesson = await generateLesson(
       {
         concept: "Giải thích tích phân là diện tích dưới đường cong",
-        durationSeconds: 10,
       },
       { pollIntervalMs: 0 },
     );
@@ -81,6 +80,11 @@ describe("generateLesson", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/v2/video-jobs");
     expect(String(fetchMock.mock.calls[1]?.[0])).toBe("/api/v2/video-jobs/job-123");
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      duration_sec: 24,
+      language: "en",
+      output_language: "en",
+    });
     expect(lesson).toMatchObject({
       id: "job-123",
       status: "ready",

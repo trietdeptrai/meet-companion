@@ -6,7 +6,7 @@ import { compileSceneDslFromTimeline } from "./componentSceneCompiler.js";
 import { renderSvgFrames } from "./svgComponentRenderer.js";
 
 const execFileAsync = promisify(execFile);
-const defaultDurationSeconds = 10;
+const defaultDurationSeconds = 24;
 const width = 1280;
 const height = 720;
 const safe = {
@@ -271,14 +271,15 @@ export function createVideoGenerator({
     const outputPath = path.join(outputDirectory, fileName);
     const renderDuration = Math.min(
       Math.max(Number(timeline?.duration_sec) || durationSeconds, 1),
-      10,
+      60,
     );
     await fs.mkdir(outputDirectory, { recursive: true });
 
     if (componentGraph && timeline && !sceneDsl) {
       const outputFps = Math.min(Math.max(Number(timeline.fps) || 30, 24), 30);
+      const defaultSourceFps = renderPass === "preview" ? 6 : renderDuration > 30 ? 8 : 12;
       const sourceFps = Math.min(
-        Math.max(Number(process.env.RENDER_FRAME_FPS) || 12, 8),
+        Math.max(Number(process.env.RENDER_FRAME_FPS) || defaultSourceFps, 6),
         outputFps,
       );
       const frameDirectory = path.join(outputDirectory, ".frames", sanitizeFileName(requestId));

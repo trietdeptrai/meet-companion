@@ -166,7 +166,7 @@ describe("OpenAI tutor adapter", () => {
 
     const lesson = await tutor.generateLesson({
       prompt: "Giải thích gradient descent như đi xuống thung lũng",
-      language: "vi",
+      language: "en",
       requestContext: {
         id: "gradient-descent-valley",
         title: "Gradient descent",
@@ -185,6 +185,9 @@ describe("OpenAI tutor adapter", () => {
     expect(request.text.format.schema.required).toContain("componentGraph");
     expect(request.text.format.schema.required).not.toContain("sceneDsl");
     expect(request.text.format.schema.properties.componentGraph.properties.nodes.items.properties.component.enum).toContain("GraphPlot");
+    expect(request.instructions).toContain("Every user-visible text field");
+    expect(request.input).toContain("Video language: en");
+    expect(request.input).toContain("all visible tutor/video text must be English");
     expect(request.input).toContain("Do not generate low-level pixel motion");
     expect(lesson.followUpQuestion).toContain("learning rate");
     expect(lesson.creativeTreatments.treatments).toHaveLength(2);
