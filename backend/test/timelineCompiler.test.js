@@ -149,4 +149,99 @@ describe("timeline compiler and math quality gates", () => {
       ]),
     );
   });
+
+  test("repairs linear transformation component props so static preflight can pass", () => {
+    const storyboard = {
+      title: "Linear transformations",
+      duration_sec: 24,
+      shots: [
+        {
+          shot_id: "shot_1",
+          duration_sec: 5,
+          visual_goal: "Introduce a rule that acts on every vector.",
+          main_component: "HookTitle",
+          camera: "static_center",
+          text_policy: "title_only",
+          narration: "A linear transformation moves every vector consistently.",
+          formula: "",
+        },
+        {
+          shot_id: "shot_2",
+          duration_sec: 7,
+          visual_goal: "Show the grid deforming as one coherent object.",
+          main_component: "LinearTransformGrid",
+          camera: "static_center",
+          text_policy: "minimal_caption",
+          narration: "The whole grid stretches, rotates, or shears together.",
+          formula: "",
+        },
+        {
+          shot_id: "shot_3",
+          duration_sec: 5,
+          visual_goal: "Compare before and after while keeping straight lines straight.",
+          main_component: "SplitScreenComparison",
+          camera: "wide_compare",
+          text_policy: "short_labels",
+          narration: "The origin stays fixed, and lines stay straight.",
+          formula: "",
+        },
+        {
+          shot_id: "shot_4",
+          duration_sec: 7,
+          visual_goal: "Reveal the matrix rule.",
+          main_component: "FormulaReveal",
+          camera: "wide_summary",
+          text_policy: "final_formula",
+          narration: "A matrix captures that rule.",
+          formula: "T(\\mathbf{x}) = A\\mathbf{x}",
+        },
+      ],
+    };
+    const componentGraph = normalizeComponentGraph(
+      {
+        graph_id: "linear-transform",
+        nodes: [
+          { id: "node_1", shot_id: "shot_1", component: "HookTitle", props: { title: "Linear transformation" } },
+          {
+            id: "node_2",
+            shot_id: "shot_2",
+            component: "LinearTransformGrid",
+            props: { caption: "The whole grid moves together", annotation: "stretch, rotate, shear" },
+          },
+          {
+            id: "node_3",
+            shot_id: "shot_3",
+            component: "SplitScreenComparison",
+            props: { caption: "Origin fixed. Lines stay straight.", annotation: "before and after" },
+          },
+          {
+            id: "node_4",
+            shot_id: "shot_4",
+            component: "FormulaReveal",
+            props: { formula: "T(\\mathbf{x}) = A\\mathbf{x}" },
+          },
+        ],
+        edges: [],
+      },
+      storyboard,
+      { id: "linear-transformation", title: "Linear transformation", style: "clean_dark_explainer" },
+    );
+
+    expect(componentGraph.nodes.find((node) => node.component === "LinearTransformGrid")?.props).toMatchObject({
+      transform: "stretch, rotate, shear",
+    });
+    expect(componentGraph.nodes.find((node) => node.component === "SplitScreenComparison")?.props).toMatchObject({
+      left: "before",
+      right: "after",
+    });
+
+    const timeline = compileTimeline({
+      storyboard,
+      componentGraph,
+      durationSeconds: 24,
+      designTokens,
+    });
+
+    expect(runStaticPreflight({ componentGraph, timeline, designTokens }).pass).toBe(true);
+  });
 });

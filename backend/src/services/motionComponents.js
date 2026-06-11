@@ -157,6 +157,32 @@ function completeComponentProps(componentId, props, shot, requestContext) {
       setDefaultProp(completed, "function", firstText(completed.function, completed.curve, shot?.visual_goal, "area curve"));
       setDefaultProp(completed, "caption", shotCaption);
       break;
+    case "LinearTransformGrid":
+      setDefaultProp(completed, "transform", firstText(completed.transform, completed.annotation, shot?.visual_goal, "shear and stretch"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "SplitScreenComparison":
+      setDefaultProp(completed, "left", firstText(completed.left, "before"));
+      setDefaultProp(completed, "right", firstText(completed.right, "after"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "VectorProjection":
+      setDefaultProp(completed, "vector_a", firstText(completed.vector_a, "vector a"));
+      setDefaultProp(completed, "vector_b", firstText(completed.vector_b, "vector b"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "ProbabilityTiles":
+      setDefaultProp(completed, "groups", firstText(completed.groups, completed.caption, shot?.visual_goal, "group A, group B"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "UnitCircleProjection":
+      setDefaultProp(completed, "angle", firstText(completed.angle, "theta"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
+    case "RotatingVectorsWave":
+      setDefaultProp(completed, "frequencies", firstText(completed.frequencies, "1, 2, 3"));
+      setDefaultProp(completed, "caption", shotCaption);
+      break;
     case "RightTriangleLabeling":
       setDefaultProp(completed, "labels", firstText(completed.labels, "a, b, c"));
       break;

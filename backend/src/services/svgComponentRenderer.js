@@ -62,6 +62,7 @@ function escapeXml(value) {
 
 function formatMathText(value) {
   return String(value ?? "")
+    .replace(/\\mathbf\{([^{}]+)\}/g, "$1")
     .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1 / $2")
     .replace(/\\cdot/g, "·")
     .replace(/\\times/g, "x")
@@ -360,6 +361,91 @@ function riemannRectangles(node, shot, progress) {
   `;
 }
 
+function transformedPoint(x, y, progress) {
+  const reveal = easeInOutCubic(progress);
+  const shear = 0.22 * reveal;
+  const stretchX = 1 + 0.12 * reveal;
+  const stretchY = 1 - 0.08 * reveal;
+  const centeredX = (x - 0.5) * stretchX;
+  const centeredY = (y - 0.5) * stretchY;
+  return {
+    x: pxX(0.5 + centeredX + centeredY * shear),
+    y: pxY(0.5 + centeredY),
+  };
+}
+
+function linearTransformGrid(node, shot, progress) {
+  const transform = prop(node, "transform", "shear and stretch");
+  const caption = prop(node, "caption", shot.visual_goal);
+  const compactTransform = transform.length > 34 ? "linear map" : transform;
+  const compactCaption = caption.length > 56 ? "same rule for every point" : caption;
+  const gridLines = [];
+  for (let index = 0; index <= 6; index += 1) {
+    const value = 0.18 + index * 0.105;
+    const verticalStart = transformedPoint(value, 0.18, progress);
+    const verticalEnd = transformedPoint(value, 0.82, progress);
+    const horizontalStart = transformedPoint(0.18, value, progress);
+    const horizontalEnd = transformedPoint(0.82, value, progress);
+    gridLines.push(`<line x1="${verticalStart.x}" y1="${verticalStart.y}" x2="${verticalEnd.x}" y2="${verticalEnd.y}" stroke="${palette.cyan}" stroke-width="2" stroke-opacity="0.42"/>`);
+    gridLines.push(`<line x1="${horizontalStart.x}" y1="${horizontalStart.y}" x2="${horizontalEnd.x}" y2="${horizontalEnd.y}" stroke="${palette.cyan}" stroke-width="2" stroke-opacity="0.26"/>`);
+  }
+  const origin = transformedPoint(0.5, 0.5, progress);
+  const basisI = transformedPoint(0.68, 0.5, progress);
+  const basisJ = transformedPoint(0.5, 0.32, progress);
+
+  return `
+    <g data-component="LinearTransformGrid">
+      <rect x="182" y="104" width="710" height="492" rx="28" fill="${palette.panel}" stroke="#26385B" opacity="0.52"/>
+      <g filter="url(#softGlow)">${gridLines.join("")}</g>
+      <line x1="${origin.x}" y1="${origin.y}" x2="${basisI.x}" y2="${basisI.y}" stroke="${palette.yellow}" stroke-width="7" stroke-linecap="round" marker-end="url(#arrowHead)"/>
+      <line x1="${origin.x}" y1="${origin.y}" x2="${basisJ.x}" y2="${basisJ.y}" stroke="${palette.orange}" stroke-width="7" stroke-linecap="round" marker-end="url(#arrowHead)"/>
+      <circle cx="${origin.x}" cy="${origin.y}" r="9" fill="${palette.text}"/>
+      ${text({ x: 856, y: 170, value: compactTransform, size: 32, fill: palette.text, weight: 800, maxChars: 18 })}
+      ${text({ x: 856, y: 230, value: compactCaption, size: 25, fill: palette.cyan, weight: 650, maxChars: 24 })}
+    </g>
+  `;
+}
+
+function miniGrid({ x, y, width: boxWidth, height: boxHeight, transformed = false }) {
+  const lines = [];
+  for (let index = 0; index <= 5; index += 1) {
+    const p = index / 5;
+    const x1 = x + p * boxWidth;
+    const y1 = y;
+    const x2 = transformed ? x + p * boxWidth + 42 : x + p * boxWidth;
+    const y2 = y + boxHeight;
+    const hx1 = x;
+    const hy1 = y + p * boxHeight;
+    const hx2 = x + boxWidth;
+    const hy2 = transformed ? y + p * boxHeight - 34 * (p - 0.5) : y + p * boxHeight;
+    lines.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${palette.cyan}" stroke-opacity="0.34" stroke-width="2"/>`);
+    lines.push(`<line x1="${hx1}" y1="${hy1}" x2="${hx2}" y2="${hy2}" stroke="${palette.cyan}" stroke-opacity="0.22" stroke-width="2"/>`);
+  }
+  return lines.join("");
+}
+
+function splitScreenComparison(node, shot, progress) {
+  const reveal = easeOutCubic(progress);
+  const left = prop(node, "left", "before");
+  const right = prop(node, "right", "after");
+  const caption = prop(node, "caption", shot.visual_goal);
+
+  return `
+    <g data-component="SplitScreenComparison" opacity="${reveal.toFixed(3)}">
+      <rect x="158" y="126" width="430" height="360" rx="28" fill="${palette.panel}" stroke="#2B3B61" opacity="0.88"/>
+      <rect x="692" y="126" width="430" height="360" rx="28" fill="${palette.panel}" stroke="#2B3B61" opacity="0.88"/>
+      ${text({ x: 204, y: 190, value: left, size: 34, fill: palette.text, weight: 800, maxChars: 18 })}
+      ${text({ x: 738, y: 190, value: right, size: 34, fill: palette.text, weight: 800, maxChars: 18 })}
+      <g filter="url(#softGlow)">${miniGrid({ x: 214, y: 226, width: 300, height: 190 })}</g>
+      <g filter="url(#softGlow)">${miniGrid({ x: 748, y: 226, width: 300, height: 190, transformed: true })}</g>
+      <circle cx="364" cy="322" r="8" fill="${palette.yellow}"/>
+      <circle cx="940" cy="322" r="8" fill="${palette.yellow}"/>
+      <path d="M 602 306 C 628 288 656 288 682 306" fill="none" stroke="${palette.orange}" stroke-width="6" stroke-linecap="round" marker-end="url(#arrowHead)" filter="url(#softGlow)"/>
+      ${text({ x: 300, y: 570, value: caption, size: 30, fill: palette.cyan, weight: 650, maxChars: 46 })}
+    </g>
+  `;
+}
+
 function visualRecap(node, shot, progress) {
   const reveal = easeOutCubic(progress);
   const message = prop(node, "message", prop(node, "caption", shot.visual_goal || node.narration));
@@ -379,7 +465,7 @@ function visualRecap(node, shot, progress) {
 function genericDiagram(node, shot, progress) {
   const reveal = easeInOutCubic(progress);
   return `
-    <g opacity="${reveal}">
+    <g data-component="GenericDiagram" opacity="${reveal}">
       <rect x="246" y="198" width="300" height="210" rx="26" fill="${palette.panel}" stroke="${palette.cyan}" stroke-opacity="0.38"/>
       <rect x="736" y="234" width="260" height="172" rx="26" fill="${palette.panel2}" stroke="${palette.yellow}" stroke-opacity="0.45"/>
       <path d="M 552 304 C 624 260 664 372 730 316" fill="none" stroke="${palette.orange}" stroke-width="6" stroke-linecap="round" marker-end="url(#arrowHead)" filter="url(#softGlow)"/>
@@ -406,6 +492,10 @@ function componentMarkup(node, shot, progress) {
       return slopeTriangle(node, shot, progress);
     case "RiemannRectangles":
       return riemannRectangles(node, shot, progress);
+    case "LinearTransformGrid":
+      return linearTransformGrid(node, shot, progress);
+    case "SplitScreenComparison":
+      return splitScreenComparison(node, shot, progress);
     case "VisualRecap":
       return visualRecap(node, shot, progress);
     default:
